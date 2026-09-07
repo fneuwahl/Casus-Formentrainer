@@ -1,0 +1,3030 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<script>
+  // Gespeichertes Theme sofort anwenden (vor dem ersten Rendern), damit
+  // die Seite nicht kurz im falschen Design aufblitzt.
+  try{
+    if(localStorage.getItem('casus_theme') === 'light'){
+      document.documentElement.setAttribute('data-theme','light');
+    }
+  }catch(e){}
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Casus! — Lateinisches Kasus-Spiel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --stone-dark:#211D19;
+    --stone-mid:#332C25;
+    --stone-line:#4a3f34;
+    --parchment:#EFE3C6;
+    --parchment-dark:#e3d2a8;
+    --ink:#2b2118;
+    --gold:#C9A24B;
+    --gold-bright:#e6bf6a;
+
+    --nom:#C9A24B;
+    --gen:#7C8B6F;
+    --dat:#6E8FA0;
+    --akk:#B5563C;
+    --abl:#8C6E9B;
+
+    /* Nur im Startbildschirm/Einstellungen/Abschlussbildschirm verwendet
+       (die eigentliche Spielbuehne bleibt bewusst dunkel/atmosphaerisch,
+       unabhaengig vom Theme - siehe --stone-dark/--gold oben, die dort
+       weiterhin direkt bzw. unveraendert genutzt werden). */
+    --text-primary:#EFE3C6;
+    --text-secondary:#cfc3a4;
+    --text-tertiary:#a9987a;
+    --panel-overlay:rgba(0,0,0,.16);
+    --gold-ink:#C9A24B;
+    --disabled-bg:#4a4335;
+    --disabled-text:#8a8270;
+
+    /* Spielbildschirm-Chrome (HUD, Leisten, Spielfeld-Hintergrund, Bahn-Zuschauertribuene) */
+    --app-bg-1:#3a3226;
+    --app-bg-2:#26211b;
+    --app-bg-3:#211d19;
+    --hud-grad-1:#2a2419;
+    --hud-grad-2:#211d19;
+    --panel-dark:#241f18;
+    --panel-dark-2:#3a3226;
+    --arena-stands-1:#5c4530;
+    --arena-stands-2:#3a2c1c;
+    --arena-bg-1:#4a3420;
+    --arena-bg-2:#2a1d12;
+    --arena-bg-3:#1c130b;
+  }
+
+  /* ---------- HELLES THEME (nur Screen-Chrome, Spielbuehne bleibt dunkel) ---------- */
+  html[data-theme="light"]{
+    --stone-dark:#F4EEDF;
+    --stone-mid:#E6DABC;
+    --stone-line:#C6B688;
+    --text-primary:#3a2f22;
+    --text-secondary:#6b5d45;
+    --text-tertiary:#8a7a5c;
+    --panel-overlay:rgba(120,100,60,.10);
+    --gold-ink:#8a6520;
+    --disabled-bg:#DCD0AE;
+    --disabled-text:#a89878;
+
+    --app-bg-1:#EDE3C8;
+    --app-bg-2:#F4EEDF;
+    --app-bg-3:#F4EEDF;
+    --hud-grad-1:#EDE3C8;
+    --hud-grad-2:#F4EEDF;
+    --panel-dark:#E9DFC4;
+    --panel-dark-2:#E0D3AE;
+    --arena-stands-1:#D8C79E;
+    --arena-stands-2:#C9B587;
+    --arena-bg-1:#E3D3A8;
+    --arena-bg-2:#D6C393;
+    --arena-bg-3:#CBB683;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;
+    padding:0;
+    height:100%;
+    background:var(--stone-dark);
+    font-family:'EB Garamond', Georgia, serif;
+    color:var(--text-primary);
+    overflow:hidden;
+    overscroll-behavior:none;
+    -webkit-text-size-adjust:100%;
+  }
+  h1,h2,h3,.display{
+    font-family:'Cinzel', serif;
+    letter-spacing:.04em;
+  }
+
+  #app{
+    position:relative;
+    width:100vw;
+    height:100vh;
+    height:100dvh; /* echte sichtbare Höhe auf Handys (ohne Adressleisten-Sprung) */
+    background:
+      radial-gradient(ellipse at 50% -10%, var(--app-bg-1) 0%, transparent 60%),
+      repeating-linear-gradient(45deg, var(--app-bg-2) 0 2px, var(--app-bg-3) 2px 4px);
+  }
+
+  /* ---------- SCREENS (overlay) ---------- */
+  .screen{
+    position:absolute;
+    inset:0;
+    display:flex;
+    flex-direction:column;
+    align-items:stretch;
+    text-align:center;
+    padding:24px;
+    padding-top:calc(24px + env(safe-area-inset-top));
+    padding-bottom:calc(24px + env(safe-area-inset-bottom));
+    z-index:20;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior:contain;
+    touch-action:pan-y;
+    background:
+      radial-gradient(ellipse at 50% 20%, rgba(201,162,75,.10), transparent 55%),
+      var(--stone-dark);
+  }
+  /* Zentriert vertikal, solange der Inhalt passt; wird der Inhalt hoeher als
+     der Bildschirm (z.B. Handy im Hochformat mit vielen Optionen), fallen die
+     Auto-Raender weg und der Screen wird stattdessen scrollbar von oben an. */
+  .screen-inner{
+    margin:auto 0;
+    width:100%;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  .hidden{ display:none !important; }
+
+  .eyebrow{
+    font-family:'Cinzel', serif;
+    font-size:clamp(11px,1.6vw,13px);
+    letter-spacing:.35em;
+    text-transform:uppercase;
+    color:var(--gold-ink);
+    opacity:.85;
+    margin-bottom:10px;
+  }
+  .title-main{
+    font-size:clamp(34px,7vw,64px);
+    font-weight:900;
+    color:var(--text-primary);
+    margin:0 0 6px 0;
+    text-shadow:0 2px 0 #000, 0 0 30px rgba(201,162,75,.25);
+  }
+  .title-sub{
+    font-style:italic;
+    font-size:clamp(14px,2.2vw,18px);
+    color:var(--gold-ink);
+    margin:0 0 28px 0;
+    font-family:'EB Garamond',serif;
+  }
+
+  .rules{
+    max-width:560px;
+    font-size:clamp(15px,2vw,18px);
+    line-height:1.55;
+    color:var(--text-primary);
+    margin-bottom:26px;
+  }
+  .rules b{ color:var(--gold-ink); }
+
+  .group-select{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    justify-content:center;
+    margin-bottom:26px;
+  }
+  .group-btn{
+    font-family:'EB Garamond',serif;
+    font-size:16px;
+    padding:10px 18px;
+    min-height:44px;
+    border-radius:3px;
+    border:1px solid var(--stone-line);
+    background:var(--stone-mid);
+    color:var(--text-primary);
+    cursor:pointer;
+    transition:.15s ease;
+    touch-action:manipulation;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .group-btn:hover{ border-color:var(--gold); }
+  .group-btn.active{
+    background:var(--gold);
+    color:#241d12;
+    border-color:var(--gold);
+    font-weight:600;
+  }
+
+  .filter-row{
+    display:flex;
+    justify-content:center;
+    margin-bottom:16px;
+  }
+  .filter-group{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+    justify-content:center;
+  }
+  .filter-label{
+    font-size:14px;
+    color:var(--text-secondary);
+  }
+  .section-label{
+    font-family:'Cinzel',serif;
+    font-size:11px;
+    letter-spacing:.2em;
+    text-transform:uppercase;
+    color:var(--text-tertiary);
+    margin:0 0 8px 0;
+  }
+
+  /* ---------- MODE CARDS ---------- */
+  .mode-cards{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:12px;
+    width:100%;
+    max-width:640px;
+    margin:6px 0 18px 0;
+  }
+  .mode-card{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    text-align:center;
+    gap:7px;
+    padding:18px 12px;
+    border-radius:8px;
+    border:1px solid var(--stone-line);
+    background:var(--stone-mid);
+    color:var(--text-primary);
+    cursor:pointer;
+    transition:transform .12s ease, border-color .15s ease, background .15s ease;
+    touch-action:manipulation;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .mode-card:hover{ border-color:var(--gold); transform:translateY(-2px); }
+  .mode-card.active{
+    background:linear-gradient(180deg, rgba(201,162,75,.18), rgba(201,162,75,.06));
+    border-color:var(--gold);
+    box-shadow:0 0 0 1px var(--gold) inset, 0 8px 18px rgba(0,0,0,.35);
+  }
+  .mode-icon{ width:38px; height:38px; color:var(--text-tertiary); }
+  .mode-card.active .mode-icon{ color:var(--gold-ink); }
+  .mode-card-title{
+    font-family:'Cinzel',serif;
+    font-size:15px;
+    letter-spacing:.04em;
+    color:var(--text-primary);
+  }
+  .mode-card-desc{
+    font-size:12.5px;
+    line-height:1.4;
+    color:var(--text-secondary);
+  }
+  .mode-card-note{
+    font-size:11px;
+    color:var(--gold-ink);
+    font-style:italic;
+    min-height:14px;
+  }
+
+  /* ---------- SETTINGS PANEL (einklappbar) ---------- */
+  .settings-panel{
+    width:100%;
+    max-width:640px;
+    margin-bottom:18px;
+    border:1px solid var(--stone-line);
+    border-radius:6px;
+    background:var(--panel-overlay);
+    text-align:left;
+  }
+  .settings-panel summary{
+    cursor:pointer;
+    padding:12px 16px;
+    font-family:'Cinzel',serif;
+    font-size:13px;
+    letter-spacing:.03em;
+    color:var(--gold-ink);
+    list-style:none;
+    display:flex;
+    align-items:center;
+    gap:9px;
+    touch-action:manipulation;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .settings-panel summary::-webkit-details-marker{ display:none; }
+  .settings-panel summary::before{
+    content:'▸';
+    display:inline-block;
+    transition:transform .15s ease;
+    color:var(--text-tertiary);
+  }
+  .settings-panel[open] summary::before{ transform:rotate(90deg); }
+  #settings-summary-detail{
+    font-family:'EB Garamond',serif;
+    font-style:italic;
+    color:var(--text-tertiary);
+    font-weight:normal;
+    font-size:12.5px;
+  }
+  .settings-body{
+    padding:2px 16px 16px 16px;
+    border-top:1px solid var(--stone-line);
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+  }
+  .settings-row{ display:flex; flex-direction:column; gap:7px; }
+  .settings-row-label{
+    font-family:'Cinzel',serif;
+    font-size:11px;
+    letter-spacing:.15em;
+    text-transform:uppercase;
+    color:var(--text-tertiary);
+  }
+
+  .filter-select{
+    font-family:'EB Garamond',serif;
+    font-size:16px;
+    padding:8px 10px;
+    min-height:44px;
+    border-radius:3px;
+    border:1px solid var(--stone-line);
+    background:var(--stone-mid);
+    color:var(--text-primary);
+    touch-action:manipulation;
+  }
+  .group-btn:focus-visible, .primary-btn:focus-visible, .urn:focus-visible{
+    outline:3px solid var(--gold-bright);
+    outline-offset:2px;
+  }
+
+  .primary-btn{
+    font-family:'Cinzel',serif;
+    font-size:clamp(16px,2.4vw,20px);
+    letter-spacing:.08em;
+    padding:14px 40px;
+    min-height:48px;
+    background:linear-gradient(180deg, var(--gold-bright), var(--gold));
+    color:#241d12;
+    border:none;
+    border-radius:2px;
+    cursor:pointer;
+    box-shadow:0 4px 0 #7a6023, 0 8px 18px rgba(0,0,0,.4);
+    transition:transform .08s ease;
+    touch-action:manipulation;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .primary-btn:hover{ transform:translateY(-2px); }
+  .primary-btn:active{ transform:translateY(2px); box-shadow:0 2px 0 #7a6023; }
+  .primary-btn.disabled, .primary-btn:disabled{
+    background:var(--disabled-bg);
+    color:var(--disabled-text);
+    box-shadow:none;
+    cursor:not-allowed;
+    transform:none !important;
+  }
+
+  .legend{
+    display:flex;
+    gap:14px;
+    flex-wrap:wrap;
+    justify-content:center;
+    margin-top:26px;
+  }
+  .legend-chip{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-size:13px;
+    color:var(--text-secondary);
+  }
+  .legend-dot{
+    width:12px;height:12px;border-radius:50%;
+    box-shadow:0 0 0 1px rgba(0,0,0,.4) inset;
+  }
+
+  /* ---------- GAME SCREEN ---------- */
+  #game-screen{
+    position:absolute;
+    inset:0;
+    display:none;
+    flex-direction:column;
+    overflow:hidden;
+    touch-action:none; /* verhindert Wisch-Interferenzen mit der Seite waehrend des Spiels */
+    padding-top:env(safe-area-inset-top);
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  #game-screen.active{ display:flex; }
+
+  #hud{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:12px 22px;
+    background:linear-gradient(180deg, var(--hud-grad-1), var(--hud-grad-2));
+    border-bottom:2px solid var(--stone-line);
+    z-index:10;
+    flex-wrap:wrap;
+    gap:6px;
+  }
+  .hud-block{ display:flex; align-items:center; gap:14px; }
+  .hud-label{
+    font-family:'Cinzel',serif;
+    font-size:11px;
+    letter-spacing:.2em;
+    color:var(--text-tertiary);
+    text-transform:uppercase;
+  }
+  .hud-value{
+    font-family:'Cinzel',serif;
+    font-size:20px;
+    color:var(--gold-ink);
+    min-width:2ch;
+  }
+  #lives{ display:flex; gap:5px; }
+  .life-tablet{
+    width:16px;height:20px;
+    background:var(--parchment);
+    border-radius:2px;
+    box-shadow:0 0 0 1px var(--ink) inset;
+  }
+  .life-tablet.lost{
+    background:transparent;
+    box-shadow:0 0 0 1px var(--stone-line) inset;
+  }
+  #streak{
+    font-family:'Cinzel',serif;
+    font-size:13px;
+    color:var(--gold-ink);
+    opacity:0;
+    transition:opacity .2s ease, color .2s ease;
+  }
+  #streak.show{ opacity:1; }
+  #streak.streak-hot{
+    color:#e08a72;
+    animation:streakPulse .5s ease infinite alternate;
+  }
+  @keyframes streakPulse{
+    from{ text-shadow:0 0 2px rgba(224,138,114,.3); }
+    to{ text-shadow:0 0 10px rgba(224,138,114,.8); }
+  }
+
+  #target-hint{
+    font-size:14px;
+    color:var(--text-secondary);
+    font-style:italic;
+  }
+  #target-hint kbd{
+    font-family:'EB Garamond',serif;
+    background:var(--panel-dark-2);
+    border:1px solid var(--stone-line);
+    border-radius:3px;
+    padding:1px 6px;
+    color:var(--gold-ink);
+    font-style:normal;
+  }
+
+  #playfield{
+    position:relative;
+    flex:1;
+    overflow:hidden;
+  }
+
+  /* ---------- ARENA WRAPPER (Fänger / Slice) ---------- */
+  .arena{
+    position:relative;
+    flex:1;
+    min-height:0;
+    display:flex;
+    flex-direction:column;
+  }
+  /* Sicherheitsnetz: falls auf sehr kurzen/schmalen Bildschirmen (z.B. Handy im
+     Querformat) nicht alles gleichzeitig passt, wird die Rennen-Arena scrollbar
+     statt Inhalte abzuschneiden. Unproblematisch, da hier nur getippt wird
+     (kein Wisch-Gestus wie im Slice-Modus). */
+  #arena-rennen{
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+
+  /* ---------- SLICE MODE ---------- */
+  #slice-target-bar{
+    display:flex;
+    align-items:center;
+    gap:16px;
+    padding:9px 22px;
+    background:var(--panel-dark);
+    border-bottom:1px solid var(--stone-line);
+    flex:none;
+  }
+  #target-case-label{
+    font-family:'Cinzel',serif;
+    font-size:14px;
+    color:var(--text-secondary);
+    letter-spacing:.03em;
+    white-space:nowrap;
+  }
+  #target-case-name{
+    text-transform:uppercase;
+    letter-spacing:.06em;
+  }
+  #target-progress-track, .progress-track{
+    flex:1;
+    height:8px;
+    border-radius:4px;
+    background:var(--panel-dark-2);
+    overflow:hidden;
+  }
+  #target-progress-fill{
+    height:100%;
+    width:100%;
+    background:linear-gradient(90deg, var(--gold), var(--gold-bright));
+  }
+
+  #slice-field{
+    position:relative;
+    flex:1;
+    overflow:hidden;
+    touch-action:none;
+    cursor:crosshair;
+  }
+  #slice-canvas{
+    position:absolute;
+    inset:0;
+    pointer-events:none;
+    z-index:8;
+  }
+
+  /* ---------- WAGENRENNEN MODE ---------- */
+  #race-timer-bar{
+    display:flex;
+    align-items:center;
+    gap:16px;
+    padding:9px 22px;
+    background:var(--panel-dark);
+    border-bottom:1px solid var(--stone-line);
+    flex:none;
+  }
+  #race-timer-label{
+    font-family:'Cinzel',serif;
+    font-size:14px;
+    color:var(--text-secondary);
+    letter-spacing:.03em;
+    white-space:nowrap;
+  }
+  #race-time-fill{
+    height:100%;
+    width:100%;
+    background:linear-gradient(90deg, #8fd08c, var(--gold-bright));
+  }
+
+  #race-track{
+    position:relative;
+    flex:0 0 36%;
+    min-height:130px;
+    overflow:hidden;
+    background:linear-gradient(180deg, var(--arena-bg-1) 0%, var(--arena-bg-2) 60%, var(--arena-bg-3) 100%);
+    border-bottom:3px solid var(--stone-line);
+  }
+  /* Ranghintergrund (Zuschauertribuene) - langsamer Parallax-Layer */
+  #race-stands{
+    position:absolute;
+    left:0; right:0; top:0;
+    height:38%;
+    background:
+      repeating-linear-gradient(90deg, rgba(210,180,140,.16) 0 22px, rgba(120,95,65,.10) 22px 44px),
+      linear-gradient(180deg, var(--arena-stands-1), var(--arena-stands-2));
+    border-bottom:2px solid rgba(0,0,0,.35);
+  }
+  /* Spina (Mittelbarriere mit Obelisken) - mittlerer Parallax-Layer */
+  #race-spina{
+    position:absolute;
+    left:0; right:0;
+    top:40%;
+    height:14%;
+    background:linear-gradient(180deg, #8a7150, #6b563a);
+    box-shadow:0 2px 4px rgba(0,0,0,.4) inset;
+  }
+  #race-spina::before{
+    content:'';
+    position:absolute; inset:0;
+    background:repeating-linear-gradient(90deg,
+      transparent 0 130px,
+      rgba(40,30,18,.55) 130px 138px,
+      transparent 138px 160px,
+      rgba(40,30,18,.55) 160px 168px,
+      transparent 168px 320px);
+  }
+  /* Sandbahn im Vordergrund */
+  #race-road{
+    position:absolute;
+    left:0; right:0; bottom:0;
+    height:46%;
+    background:
+      repeating-linear-gradient(90deg, rgba(120,90,55,.4) 0 6px, transparent 6px 68px) 0 0/68px 100%,
+      linear-gradient(180deg, #c9a565, #a9803f);
+    border-top:2px solid rgba(80,55,25,.5);
+  }
+
+  #race-rig{
+    position:absolute;
+    left:6%;
+    bottom:18%;
+    width:clamp(150px,30vw,300px);
+    transition:left .6s ease-out;
+  }
+  .rig-svg{ width:100%; height:auto; overflow:visible; transform:scaleX(-1); }
+  .chariot-body{ fill:var(--gold); stroke:#7a6023; stroke-width:2; }
+  .chariot-rein{ fill:none; stroke:#cfc3a4; stroke-width:2; stroke-linecap:round; }
+  .wheel{
+    fill:#241f18;
+    stroke:var(--gold-bright);
+    stroke-width:3;
+  }
+  .horse-body{ fill:#3a2a1c; stroke:#1c130b; stroke-width:1.5; }
+  .horse-mane{ fill:#241a10; }
+  .horse-leg{
+    stroke:#2a1d12;
+    stroke-width:5;
+    stroke-linecap:round;
+  }
+
+  #race-distance{
+    position:absolute;
+    top:8px;
+    right:14px;
+    text-align:right;
+    font-family:'Cinzel',serif;
+    font-size:clamp(15px,2.6vw,20px);
+    color:var(--gold-ink);
+    letter-spacing:.05em;
+    text-shadow:0 2px 3px rgba(0,0,0,.6);
+  }
+  #race-lap-progress-track{
+    margin-top:4px;
+    width:clamp(70px,14vw,110px);
+    height:4px;
+    border-radius:2px;
+    background:rgba(0,0,0,.4);
+    overflow:hidden;
+    margin-left:auto;
+  }
+  #race-lap-progress-fill{
+    height:100%;
+    width:0%;
+    background:var(--gold-bright);
+  }
+  .lap-flash{
+    position:absolute;
+    inset:0;
+    pointer-events:none;
+    background:radial-gradient(ellipse at 50% 50%, rgba(230,191,106,.35), transparent 70%);
+    opacity:0;
+  }
+  .lap-flash.show{
+    animation:lapFlash .7s ease;
+  }
+  @keyframes lapFlash{
+    0%{ opacity:0; }
+    30%{ opacity:1; }
+    100%{ opacity:0; }
+  }
+
+  #race-card-wrap{
+    position:relative;
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:14px;
+    padding:16px;
+    min-height:0;
+  }
+  #race-card{
+    font-family:'Cinzel',serif;
+    font-size:clamp(20px,5vw,40px);
+    color:var(--ink);
+    background:linear-gradient(180deg, var(--parchment), var(--parchment-dark));
+    border:1px solid #c9b47f;
+    border-radius:4px;
+    padding:16px 28px;
+    max-width:92%;
+    text-align:center;
+    overflow-wrap:break-word;
+    box-shadow:0 4px 0 #b5a06f, 0 10px 18px rgba(0,0,0,.4);
+  }
+  #race-qtimer-track{
+    width:min(320px,80%);
+    height:7px;
+    border-radius:4px;
+    background:var(--panel-dark-2);
+    overflow:hidden;
+  }
+  #race-qtimer-fill{
+    height:100%;
+    width:100%;
+    background:linear-gradient(90deg, var(--akk), #e08a72);
+  }
+  #race-card.correct{ animation:raceCardCorrect .38s ease; }
+  #race-card.wrong{ animation:raceCardWrong .4s ease; }
+  @keyframes raceCardCorrect{
+    0%{ box-shadow:0 4px 0 #b5a06f, 0 10px 18px rgba(0,0,0,.4); }
+    40%{ box-shadow:0 4px 0 #b5a06f, 0 0 22px #8fd08c; transform:scale(1.045); }
+    100%{ box-shadow:0 4px 0 #b5a06f, 0 10px 18px rgba(0,0,0,.4); transform:scale(1); }
+  }
+  @keyframes raceCardWrong{
+    0%{ transform:translateX(0); box-shadow:0 4px 0 #b5a06f, 0 10px 18px rgba(0,0,0,.4); }
+    25%{ transform:translateX(-9px); box-shadow:0 4px 0 #b5a06f, 0 0 18px #d9614a; }
+    50%{ transform:translateX(9px); }
+    75%{ transform:translateX(-5px); }
+    100%{ transform:translateX(0); box-shadow:0 4px 0 #b5a06f, 0 10px 18px rgba(0,0,0,.4); }
+  }
+
+  /* falling tablet */
+  .tablet{
+    position:absolute;
+    top:0; left:0;
+    min-width:92px;
+    padding:10px 14px;
+    background:
+      linear-gradient(180deg, var(--parchment), var(--parchment-dark));
+    border-radius:3px;
+    box-shadow:0 3px 0 #b5a06f, 0 8px 14px rgba(0,0,0,.45);
+    color:var(--ink);
+    font-family:'Cinzel',serif;
+    font-size:18px;
+    text-align:center;
+    white-space:nowrap;
+    will-change:transform;
+    pointer-events:none;
+    border:1px solid #c9b47f;
+  }
+  .tablet.correct{
+    animation:zapCorrect .32s ease forwards;
+  }
+  .tablet.wrong{
+    animation:crackWrong .4s ease forwards;
+  }
+  @keyframes zapCorrect{
+    to{ transform:translateY(6px) scale(.4); opacity:0; }
+  }
+  @keyframes crackWrong{
+    0%{ filter:none; }
+    30%{ transform:rotate(-6deg); }
+    60%{ transform:rotate(5deg); }
+    100%{ transform:rotate(-2deg) translateY(4px); opacity:0; filter:grayscale(1); }
+  }
+
+  .floater{
+    position:absolute;
+    font-family:'Cinzel',serif;
+    font-weight:700;
+    font-size:18px;
+    pointer-events:none;
+    animation:floatUp .8s ease forwards;
+    z-index:5;
+    max-width:220px;
+    text-align:center;
+    line-height:1.3;
+  }
+  .floater .extra{
+    display:block;
+    font-family:'EB Garamond',serif;
+    font-weight:400;
+    font-style:italic;
+    font-size:12px;
+    opacity:.9;
+  }
+  .floater.good{ color:#8fd08c; }
+  .floater.bad{ color:#e08a72; }
+  @keyframes floatUp{
+    0%{ transform:translateY(0); opacity:1; }
+    100%{ transform:translateY(-46px); opacity:0; }
+  }
+
+  /* ---------- URN ROW ---------- */
+  #urn-strip, .urn-strip{
+    position:relative;
+    padding:26px 12px 16px 12px;
+    background:
+      repeating-conic-gradient(from 45deg, var(--panel-dark-2) 0deg 90deg, var(--panel-dark) 90deg 180deg) 0 0/26px 26px,
+      linear-gradient(180deg, var(--panel-dark), var(--hud-grad-2));
+    border-top:3px solid var(--stone-line);
+    z-index:10;
+  }
+
+  #cart{
+    position:absolute;
+    top:-6px;
+    left:10%;
+    width:20%;
+    display:flex;
+    justify-content:center;
+    transform:translateX(-50%);
+    transition:left .16s cubic-bezier(.3,1.4,.4,1);
+    pointer-events:none;
+    z-index:6;
+  }
+  #cart .pointer{
+    width:0; height:0;
+    border-left:11px solid transparent;
+    border-right:11px solid transparent;
+    border-top:14px solid var(--gold-bright);
+    filter:drop-shadow(0 2px 3px rgba(0,0,0,.5));
+  }
+
+  #urn-row, #urn-row-rennen{
+    display:flex;
+    justify-content:space-around;
+    align-items:flex-end;
+    gap:6px;
+  }
+  .urn{
+    background:none;
+    border:none;
+    cursor:pointer;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+    padding:6px 4px 2px 4px;
+    min-height:44px;
+    border-radius:6px;
+    flex:1;
+    max-width:150px;
+    transition:transform .12s ease, background .15s ease;
+    touch-action:manipulation;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .urn:hover{ transform:translateY(-3px); }
+  .urn.selected{ background:rgba(201,162,75,.13); }
+  .urn.flash-correct{ animation:flashGood .5s ease; }
+  .urn.flash-wrong{ animation:flashBad .5s ease; }
+  @keyframes flashGood{ 0%,100%{ filter:none; } 40%{ filter:drop-shadow(0 0 14px #8fd08c); } }
+  @keyframes flashBad{ 0%,100%{ filter:none; } 40%{ filter:drop-shadow(0 0 14px #d9614a); } }
+
+  .amphora-svg{ width:clamp(38px,7vw,64px); height:auto; color:var(--case-color); }
+  .urn-name{
+    font-family:'Cinzel',serif;
+    font-size:clamp(10px,1.6vw,13px);
+    letter-spacing:.05em;
+    color:var(--case-color);
+    text-transform:uppercase;
+    white-space:nowrap;
+  }
+  .urn-name-short{ display:none; }
+
+  /* ---------- GAME OVER ---------- */
+  #final-score{
+    font-family:'Cinzel',serif;
+    font-size:clamp(48px,9vw,80px);
+    color:var(--gold-ink);
+    margin:6px 0 2px 0;
+  }
+  #final-note{
+    font-style:italic;
+    color:var(--text-secondary);
+    margin-bottom:26px;
+  }
+
+  /* ---------- FEHLER-AUSWERTUNG ---------- */
+  #mistake-review{
+    width:100%;
+    max-width:480px;
+    margin-bottom:22px;
+    text-align:left;
+  }
+  #mistake-review-title{
+    font-family:'Cinzel',serif;
+    font-size:12px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--text-tertiary);
+    margin:0 0 8px 0;
+    text-align:center;
+  }
+  #mistake-list{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    max-height:220px;
+    overflow-y:auto;
+  }
+  .mistake-row{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    gap:10px;
+    padding:8px 12px;
+    background:var(--panel-overlay);
+    border:1px solid var(--stone-line);
+    border-radius:4px;
+    font-size:14px;
+  }
+  .mistake-form{
+    font-family:'Cinzel',serif;
+    color:var(--gold-ink);
+    flex-shrink:0;
+  }
+  .mistake-answer{
+    color:var(--text-secondary);
+    text-align:right;
+    font-size:13px;
+  }
+  .mistake-count{
+    color:var(--text-tertiary);
+    font-size:11px;
+    margin-left:6px;
+  }
+  #mistake-review.perfect #mistake-list{ display:none; }
+  #mistake-review.perfect #mistake-review-title{
+    color:#8fd08c;
+    font-size:15px;
+    text-transform:none;
+    letter-spacing:.02em;
+  }
+
+  /* ---------- BEENDEN-BUTTON & BESTAETIGUNG ---------- */
+  #quit-btn{
+    background:none;
+    border:1px solid var(--stone-line);
+    color:var(--text-tertiary);
+    width:34px;
+    height:34px;
+    border-radius:50%;
+    font-size:16px;
+    line-height:1;
+    cursor:pointer;
+    flex-shrink:0;
+    touch-action:manipulation;
+    -webkit-tap-highlight-color:transparent;
+    transition:.15s ease;
+  }
+  #quit-btn:hover{ border-color:#e08a72; color:#e08a72; }
+
+  #theme-toggle{
+    position:absolute;
+    top:calc(14px + env(safe-area-inset-top));
+    right:16px;
+    z-index:5;
+    background:var(--stone-mid);
+    border:1px solid var(--stone-line);
+    color:var(--text-primary);
+    width:38px;
+    height:38px;
+    border-radius:50%;
+    font-size:17px;
+    line-height:1;
+    cursor:pointer;
+    touch-action:manipulation;
+    -webkit-tap-highlight-color:transparent;
+    transition:.15s ease;
+  }
+  #theme-toggle:hover{ border-color:var(--gold); transform:translateY(-1px); }
+
+  @media (prefers-reduced-motion: reduce){
+    .tablet.correct, .tablet.wrong, .floater, .urn.flash-correct, .urn.flash-wrong, #streak.streak-hot{
+      animation-duration:.01ms !important;
+    }
+  }
+
+  @media (max-width:640px){
+    .urn-name-full{ display:none; }
+    .urn-name-short{ display:inline; }
+    #target-hint{ display:none; }
+    .rules{ font-size:14px; }
+    .title-main{ margin-bottom:2px; }
+    .title-sub{ margin-bottom:16px; }
+    .screen{ padding-left:16px; padding-right:16px; }
+    .mode-cards{ grid-template-columns:1fr; }
+    .mode-card{
+      display:grid;
+      grid-template-columns:36px 1fr;
+      grid-template-rows:auto auto auto;
+      column-gap:12px;
+      row-gap:2px;
+      align-items:start;
+      text-align:left;
+      padding:12px 14px;
+    }
+    .mode-icon{ grid-column:1; grid-row:1 / 4; align-self:center; width:30px; height:30px; }
+    .mode-card-title{ grid-column:2; grid-row:1; }
+    .mode-card-desc{ grid-column:2; grid-row:2; }
+    .mode-card-note{ grid-column:2; grid-row:3; }
+  }
+
+  /* niedrige Bildschirme (z.B. Handy im Querformat) - HUD/Zielleiste kompakter */
+  @media (max-height:480px){
+    #hud{ padding:6px 16px; }
+    .hud-value{ font-size:17px; }
+    #slice-target-bar{ padding:5px 16px; }
+    .title-main{ font-size:clamp(24px,6vw,40px); }
+    .title-sub{ margin-bottom:12px; }
+    .rules{ margin-bottom:12px; }
+    .section-label{ margin-bottom:4px; }
+
+    /* Wagenrennen: bei wenig Hoehe (z.B. Handy quer) deutlich kompakter */
+    #race-timer-bar{ padding:4px 16px; }
+    #race-track{ flex-basis:26%; min-height:74px; }
+    #race-rig{ width:clamp(90px,22vw,180px); }
+    .urn-strip{ padding:10px 8px 6px 8px; }
+    .amphora-svg{ width:clamp(28px,6vw,44px); }
+    #race-card{ padding:8px 20px; font-size:clamp(18px,4vw,28px); }
+    #race-card-wrap{ gap:6px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- START SCREEN -->
+  <div id="start-screen" class="screen">
+   <button id="theme-toggle" type="button" aria-label="Helles Design aktivieren">☀️</button>
+   <div class="screen-inner">
+    <div class="eyebrow">Casus Capiendi</div>
+    <h1 class="title-main">Casus!</h1>
+    <p class="title-sub">„Erkenne den Kasus – in drei verschiedenen Spielen.“</p>
+
+    <p class="rules">
+      Lateinische Wortformen aus dem Prima&nbsp;Nova&#8209;Wortschatz kommen ins Spiel
+      &mdash; erkenne den richtigen <b>Kasus</b>, bevor die Zeit abläuft.
+      Wähle unten den Spielmodus, den Wortschatz und den Schwierigkeitsgrad.
+    </p>
+
+    <div class="mode-cards" id="mode-select">
+      <button class="mode-card active" data-mode="faenger" type="button">
+        <svg class="mode-icon" viewBox="0 0 100 120" fill="currentColor"><path d="M38,10 Q38,2 50,2 Q62,2 62,10 L65,24 Q90,34 85,64 Q85,102 50,118 Q15,102 15,64 Q10,34 35,24 Z"/></svg>
+        <span class="mode-card-title">Fänger</span>
+        <span class="mode-card-desc">Lenke den Wagen zur passenden Amphore, bevor die Tafel landet.</span>
+        <span class="mode-card-note"></span>
+      </button>
+      <button class="mode-card" data-mode="slice" type="button">
+        <svg class="mode-icon" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"><path d="M15,85 L85,15"/><path d="M58,10 L90,10 L90,42"/></svg>
+        <span class="mode-card-title">Slice</span>
+        <span class="mode-card-desc">Wische alle Formen weg, die zum angezeigten Ziel&#8209;Kasus passen.</span>
+        <span class="mode-card-note"></span>
+      </button>
+      <button class="mode-card" data-mode="rennen" type="button">
+        <svg class="mode-icon" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"><circle cx="50" cy="50" r="36" stroke-width="7"/><path d="M50,14 L50,86 M14,50 L86,50 M24,24 L76,76 M76,24 L24,76"/><circle cx="50" cy="50" r="7" fill="currentColor" stroke="none"/></svg>
+        <span class="mode-card-title">Wagenrennen</span>
+        <span class="mode-card-desc">Tippe schnell die richtige Amphore an und drehe deine Runden. 3 Fehler und der Wagen kommt von der Bahn ab.</span>
+        <span class="mode-card-note"></span>
+      </button>
+    </div>
+
+    <details class="settings-panel" id="settings-details">
+      <summary>Einstellungen <span id="settings-summary-detail"></span></summary>
+      <div class="settings-body">
+        <div class="settings-row">
+          <span class="settings-row-label">Lektion (Prima Nova)</span>
+          <div class="filter-row">
+            <div class="filter-group">
+              <span class="filter-label">von</span>
+              <select id="lekt-min" class="filter-select"></select>
+              <span class="filter-label">bis</span>
+              <select id="lekt-max" class="filter-select"></select>
+            </div>
+          </div>
+        </div>
+        <div class="settings-row">
+          <span class="settings-row-label">Numerus</span>
+          <div class="group-select" id="num-select">
+            <button class="group-btn active" data-num="sg">Singular</button>
+            <button class="group-btn" data-num="pl">Plural</button>
+            <button class="group-btn" data-num="mixed">Singular/Plural gemischt</button>
+          </div>
+          <p class="filter-label" id="num-hint" style="margin:2px 0 0 0;font-style:italic;"></p>
+        </div>
+        <div class="settings-row">
+          <span class="settings-row-label">Deklinationen (mehrfach wählbar)</span>
+          <div class="group-select" id="group-select">
+            <button class="group-btn active" data-decl="1">a&#8209;Deklination</button>
+            <button class="group-btn active" data-decl="2m">o&#8209;Dekl. (mask.)</button>
+            <button class="group-btn active" data-decl="2n">o&#8209;Dekl. (neutr.)</button>
+            <button class="group-btn active" data-decl="3">kons. Deklination</button>
+          </div>
+        </div>
+        <div class="settings-row">
+          <span class="settings-row-label">Schwierigkeitsgrad</span>
+          <div class="group-select" id="diff-select">
+            <button class="group-btn" data-diff="leicht">Leicht</button>
+            <button class="group-btn active" data-diff="mittel">Mittel</button>
+            <button class="group-btn" data-diff="schwer">Schwer</button>
+            <button class="group-btn" data-diff="uebung">Übung (ohne Zeitdruck)</button>
+          </div>
+        </div>
+        <p class="filter-label" id="pool-warning" style="margin:4px 0 0 0;font-style:italic;color:#e08a72;"></p>
+      </div>
+    </details>
+
+    <button class="primary-btn" id="start-btn">Spiel beginnen</button>
+
+    <div class="legend" id="legend"></div>
+   </div>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div id="game-screen">
+    <div id="hud">
+      <div class="hud-block" id="score-block">
+        <span class="hud-label" id="score-label">Punkte</span>
+        <span class="hud-value" id="score">0</span>
+        <span id="streak"></span>
+      </div>
+      <div id="target-hint">Wagen lenken: <kbd>←</kbd> <kbd>→</kbd> oder Amphore anklicken</div>
+      <div class="hud-block" id="lives-block">
+        <span class="hud-label">Leben</span>
+        <div id="lives"></div>
+      </div>
+      <button id="quit-btn" type="button" aria-label="Spiel beenden">✕</button>
+    </div>
+
+    <div id="slice-target-bar" class="hidden">
+      <span id="target-case-label">Ziel-Kasus: <b id="target-case-name">Dativ</b></span>
+      <div id="target-progress-track"><div id="target-progress-fill"></div></div>
+    </div>
+
+    <div id="race-timer-bar" class="hidden">
+      <span id="race-timer-label">Noch <b id="race-time-left">60</b> s</span>
+      <div class="progress-track"><div id="race-time-fill"></div></div>
+    </div>
+
+    <div id="arena-faenger" class="arena">
+      <div id="playfield"></div>
+      <div id="urn-strip">
+        <div id="cart"><div class="pointer"></div></div>
+        <div id="urn-row"></div>
+      </div>
+    </div>
+
+    <div id="arena-slice" class="arena hidden">
+      <div id="slice-field">
+        <canvas id="slice-canvas"></canvas>
+      </div>
+    </div>
+
+    <div id="arena-rennen" class="arena hidden">
+      <div id="race-track">
+        <div id="race-stands"></div>
+        <div id="race-spina"></div>
+        <div id="race-road"></div>
+        <div class="lap-flash" id="lap-flash"></div>
+        <div id="race-rig">
+          <svg viewBox="0 0 260 100" class="rig-svg">
+            <!-- Zuegel -->
+            <path d="M118,46 L150,40 M118,50 L150,60" class="chariot-rein"/>
+            <!-- hinteres Pferd -->
+            <g class="horse" transform="translate(0,0)">
+              <path class="horse-leg back" d="M18,58 L14,80" />
+              <path class="horse-leg" d="M32,58 L36,80" />
+              <path d="M10,30 Q6,50 16,60 L44,60 Q54,52 50,38 Q46,26 34,24 L22,26 Q12,24 10,30 Z" class="horse-body"/>
+              <path d="M10,30 Q2,26 4,18 Q10,16 14,24 Z" class="horse-body"/>
+              <path d="M6,20 Q2,14 6,10 M8,22 Q6,14 10,9" class="horse-mane" fill="none" stroke="#241a10" stroke-width="2" stroke-linecap="round"/>
+            </g>
+            <!-- vorderes Pferd -->
+            <g class="horse" transform="translate(46,-4)">
+              <path class="horse-leg back" d="M18,58 L14,80" />
+              <path class="horse-leg" d="M32,58 L36,80" />
+              <path d="M10,30 Q6,50 16,60 L44,60 Q54,52 50,38 Q46,26 34,24 L22,26 Q12,24 10,30 Z" class="horse-body"/>
+              <path d="M10,30 Q2,26 4,18 Q10,16 14,24 Z" class="horse-body"/>
+              <path d="M6,20 Q2,14 6,10 M8,22 Q6,14 10,9" class="horse-mane" fill="none" stroke="#241a10" stroke-width="2" stroke-linecap="round"/>
+            </g>
+            <!-- Wagen -->
+            <ellipse cx="168" cy="82" rx="15" ry="15" class="wheel"/>
+            <ellipse cx="206" cy="82" rx="15" ry="15" class="wheel"/>
+            <path d="M154,82 L163,42 L221,42 L226,82 Z" class="chariot-body"/>
+          </svg>
+        </div>
+        <div id="race-distance">
+          Runde <span id="race-lap">1</span>
+          <div id="race-lap-progress-track"><div id="race-lap-progress-fill"></div></div>
+        </div>
+      </div>
+      <div id="race-card-wrap">
+        <div id="race-card">puella</div>
+        <div id="race-qtimer-track"><div id="race-qtimer-fill"></div></div>
+      </div>
+      <div class="urn-strip">
+        <div id="urn-row-rennen"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GAME OVER SCREEN -->
+  <div id="gameover-screen" class="screen hidden">
+   <div class="screen-inner">
+    <div id="gameover-eyebrow" class="eyebrow">Tabulae Fractae</div>
+    <h2 id="gameover-title" class="title-main" style="font-size:clamp(26px,5vw,40px);">Die Tafeln sind zerbrochen</h2>
+    <div id="final-score">0</div>
+    <p id="final-note">Punkte gesammelt</p>
+
+    <div id="mistake-review">
+      <p id="mistake-review-title">Das lohnt sich zu üben:</p>
+      <div id="mistake-list"></div>
+    </div>
+
+    <button class="primary-btn" id="restart-btn">Nochmal versuchen</button>
+    <button class="group-btn" id="menu-btn" style="margin-top:10px;padding:10px 24px;">Zurück zum Menü</button>
+   </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------------- DATA ---------------- */
+  const CASES = [
+    { id:'nom', name:'Nominativ', short:'Nom.', color:'var(--nom)' },
+    { id:'gen', name:'Genitiv',   short:'Gen.', color:'var(--gen)' },
+    { id:'dat', name:'Dativ',     short:'Dat.', color:'var(--dat)' },
+    { id:'akk', name:'Akkusativ', short:'Akk.', color:'var(--akk)' },
+    { id:'abl', name:'Ablativ',   short:'Abl.', color:'var(--abl)' }
+  ];
+  const CASE_COLOR = { nom:'#C9A24B', gen:'#7C8B6F', dat:'#6E8FA0', akk:'#B5563C', abl:'#8C6E9B' };
+
+  // Wortschatz: Prima Nova, Lektion 1-9 (alle Substantive, Singular UND
+  // Plural), automatisch aus den Stammformen dekliniert. Wo zwei Kasus
+  // im Lateinischen dieselbe Form haben (Synkretismus), stehen beide im
+  // "cases"-Array - beide Antworten zaehlen dann als richtig. Reine
+  // Pluraliatantum (thermae, arma, aedes, liberi, maiores) tauchen nur
+  // im Plural-Modus auf.
+const WORDS = [
+    { form:'curia', cases:['nom','abl'], lekt:1, decl:'1', word:'curia', meaning:'Kurie, Rathaus', num:'sg' },
+    { form:'curiae', cases:['gen','dat'], lekt:1, decl:'1', word:'curia', meaning:'Kurie, Rathaus', num:'sg' },
+    { form:'curiam', cases:['akk'], lekt:1, decl:'1', word:'curia', meaning:'Kurie, Rathaus', num:'sg' },
+    { form:'curiae', cases:['nom'], lekt:1, decl:'1', word:'curia', meaning:'Kurie, Rathaus', num:'pl' },
+    { form:'curiarum', cases:['gen'], lekt:1, decl:'1', word:'curia', meaning:'Kurie, Rathaus', num:'pl' },
+    { form:'curiis', cases:['dat','abl'], lekt:1, decl:'1', word:'curia', meaning:'Kurie, Rathaus', num:'pl' },
+    { form:'curias', cases:['akk'], lekt:1, decl:'1', word:'curia', meaning:'Kurie, Rathaus', num:'pl' },
+    { form:'turba', cases:['nom','abl'], lekt:1, decl:'1', word:'turba', meaning:'Menschenmenge', num:'sg' },
+    { form:'turbae', cases:['gen','dat'], lekt:1, decl:'1', word:'turba', meaning:'Menschenmenge', num:'sg' },
+    { form:'turbam', cases:['akk'], lekt:1, decl:'1', word:'turba', meaning:'Menschenmenge', num:'sg' },
+    { form:'turbae', cases:['nom'], lekt:1, decl:'1', word:'turba', meaning:'Menschenmenge', num:'pl' },
+    { form:'turbarum', cases:['gen'], lekt:1, decl:'1', word:'turba', meaning:'Menschenmenge', num:'pl' },
+    { form:'turbis', cases:['dat','abl'], lekt:1, decl:'1', word:'turba', meaning:'Menschenmenge', num:'pl' },
+    { form:'turbas', cases:['akk'], lekt:1, decl:'1', word:'turba', meaning:'Menschenmenge', num:'pl' },
+    { form:'servus', cases:['nom'], lekt:1, decl:'2m', word:'servus', meaning:'Sklave', num:'sg' },
+    { form:'servi', cases:['gen'], lekt:1, decl:'2m', word:'servus', meaning:'Sklave', num:'sg' },
+    { form:'servo', cases:['dat','abl'], lekt:1, decl:'2m', word:'servus', meaning:'Sklave', num:'sg' },
+    { form:'servum', cases:['akk'], lekt:1, decl:'2m', word:'servus', meaning:'Sklave', num:'sg' },
+    { form:'servi', cases:['nom'], lekt:1, decl:'2m', word:'servus', meaning:'Sklave', num:'pl' },
+    { form:'servorum', cases:['gen'], lekt:1, decl:'2m', word:'servus', meaning:'Sklave', num:'pl' },
+    { form:'servis', cases:['dat','abl'], lekt:1, decl:'2m', word:'servus', meaning:'Sklave', num:'pl' },
+    { form:'servos', cases:['akk'], lekt:1, decl:'2m', word:'servus', meaning:'Sklave', num:'pl' },
+    { form:'senator', cases:['nom'], lekt:1, decl:'3', word:'senator', meaning:'Senator', num:'sg' },
+    { form:'senatoris', cases:['gen'], lekt:1, decl:'3', word:'senator', meaning:'Senator', num:'sg' },
+    { form:'senatori', cases:['dat'], lekt:1, decl:'3', word:'senator', meaning:'Senator', num:'sg' },
+    { form:'senatorem', cases:['akk'], lekt:1, decl:'3', word:'senator', meaning:'Senator', num:'sg' },
+    { form:'senatore', cases:['abl'], lekt:1, decl:'3', word:'senator', meaning:'Senator', num:'sg' },
+    { form:'senatores', cases:['nom','akk'], lekt:1, decl:'3', word:'senator', meaning:'Senator', num:'pl' },
+    { form:'senatorum', cases:['gen'], lekt:1, decl:'3', word:'senator', meaning:'Senator', num:'pl' },
+    { form:'senatoribus', cases:['dat','abl'], lekt:1, decl:'3', word:'senator', meaning:'Senator', num:'pl' },
+    { form:'forum', cases:['nom','akk'], lekt:1, decl:'2n', word:'forum', meaning:'Marktplatz', num:'sg' },
+    { form:'fori', cases:['gen'], lekt:1, decl:'2n', word:'forum', meaning:'Marktplatz', num:'sg' },
+    { form:'foro', cases:['dat','abl'], lekt:1, decl:'2n', word:'forum', meaning:'Marktplatz', num:'sg' },
+    { form:'fora', cases:['nom','akk'], lekt:1, decl:'2n', word:'forum', meaning:'Marktplatz', num:'pl' },
+    { form:'fororum', cases:['gen'], lekt:1, decl:'2n', word:'forum', meaning:'Marktplatz', num:'pl' },
+    { form:'foris', cases:['dat','abl'], lekt:1, decl:'2n', word:'forum', meaning:'Marktplatz', num:'pl' },
+    { form:'circus', cases:['nom'], lekt:2, decl:'2m', word:'circus', meaning:'Zirkus, Rennbahn', num:'sg' },
+    { form:'circi', cases:['gen'], lekt:2, decl:'2m', word:'circus', meaning:'Zirkus, Rennbahn', num:'sg' },
+    { form:'circo', cases:['dat','abl'], lekt:2, decl:'2m', word:'circus', meaning:'Zirkus, Rennbahn', num:'sg' },
+    { form:'circum', cases:['akk'], lekt:2, decl:'2m', word:'circus', meaning:'Zirkus, Rennbahn', num:'sg' },
+    { form:'circi', cases:['nom'], lekt:2, decl:'2m', word:'circus', meaning:'Zirkus, Rennbahn', num:'pl' },
+    { form:'circorum', cases:['gen'], lekt:2, decl:'2m', word:'circus', meaning:'Zirkus, Rennbahn', num:'pl' },
+    { form:'circis', cases:['dat','abl'], lekt:2, decl:'2m', word:'circus', meaning:'Zirkus, Rennbahn', num:'pl' },
+    { form:'circos', cases:['akk'], lekt:2, decl:'2m', word:'circus', meaning:'Zirkus, Rennbahn', num:'pl' },
+    { form:'ludus', cases:['nom'], lekt:2, decl:'2m', word:'ludus', meaning:'Spiel, Schule', num:'sg' },
+    { form:'ludi', cases:['gen'], lekt:2, decl:'2m', word:'ludus', meaning:'Spiel, Schule', num:'sg' },
+    { form:'ludo', cases:['dat','abl'], lekt:2, decl:'2m', word:'ludus', meaning:'Spiel, Schule', num:'sg' },
+    { form:'ludum', cases:['akk'], lekt:2, decl:'2m', word:'ludus', meaning:'Spiel, Schule', num:'sg' },
+    { form:'ludi', cases:['nom'], lekt:2, decl:'2m', word:'ludus', meaning:'Spiel, Schule', num:'pl' },
+    { form:'ludorum', cases:['gen'], lekt:2, decl:'2m', word:'ludus', meaning:'Spiel, Schule', num:'pl' },
+    { form:'ludis', cases:['dat','abl'], lekt:2, decl:'2m', word:'ludus', meaning:'Spiel, Schule', num:'pl' },
+    { form:'ludos', cases:['akk'], lekt:2, decl:'2m', word:'ludus', meaning:'Spiel, Schule', num:'pl' },
+    { form:'amicus', cases:['nom'], lekt:2, decl:'2m', word:'amicus', meaning:'Freund', num:'sg' },
+    { form:'amici', cases:['gen'], lekt:2, decl:'2m', word:'amicus', meaning:'Freund', num:'sg' },
+    { form:'amico', cases:['dat','abl'], lekt:2, decl:'2m', word:'amicus', meaning:'Freund', num:'sg' },
+    { form:'amicum', cases:['akk'], lekt:2, decl:'2m', word:'amicus', meaning:'Freund', num:'sg' },
+    { form:'amici', cases:['nom'], lekt:2, decl:'2m', word:'amicus', meaning:'Freund', num:'pl' },
+    { form:'amicorum', cases:['gen'], lekt:2, decl:'2m', word:'amicus', meaning:'Freund', num:'pl' },
+    { form:'amicis', cases:['dat','abl'], lekt:2, decl:'2m', word:'amicus', meaning:'Freund', num:'pl' },
+    { form:'amicos', cases:['akk'], lekt:2, decl:'2m', word:'amicus', meaning:'Freund', num:'pl' },
+    { form:'populus', cases:['nom'], lekt:2, decl:'2m', word:'populus', meaning:'Volk', num:'sg' },
+    { form:'populi', cases:['gen'], lekt:2, decl:'2m', word:'populus', meaning:'Volk', num:'sg' },
+    { form:'populo', cases:['dat','abl'], lekt:2, decl:'2m', word:'populus', meaning:'Volk', num:'sg' },
+    { form:'populum', cases:['akk'], lekt:2, decl:'2m', word:'populus', meaning:'Volk', num:'sg' },
+    { form:'populi', cases:['nom'], lekt:2, decl:'2m', word:'populus', meaning:'Volk', num:'pl' },
+    { form:'populorum', cases:['gen'], lekt:2, decl:'2m', word:'populus', meaning:'Volk', num:'pl' },
+    { form:'populis', cases:['dat','abl'], lekt:2, decl:'2m', word:'populus', meaning:'Volk', num:'pl' },
+    { form:'populos', cases:['akk'], lekt:2, decl:'2m', word:'populus', meaning:'Volk', num:'pl' },
+    { form:'porta', cases:['nom','abl'], lekt:2, decl:'1', word:'porta', meaning:'Tor', num:'sg' },
+    { form:'portae', cases:['gen','dat'], lekt:2, decl:'1', word:'porta', meaning:'Tor', num:'sg' },
+    { form:'portam', cases:['akk'], lekt:2, decl:'1', word:'porta', meaning:'Tor', num:'sg' },
+    { form:'portae', cases:['nom'], lekt:2, decl:'1', word:'porta', meaning:'Tor', num:'pl' },
+    { form:'portarum', cases:['gen'], lekt:2, decl:'1', word:'porta', meaning:'Tor', num:'pl' },
+    { form:'portis', cases:['dat','abl'], lekt:2, decl:'1', word:'porta', meaning:'Tor', num:'pl' },
+    { form:'portas', cases:['akk'], lekt:2, decl:'1', word:'porta', meaning:'Tor', num:'pl' },
+    { form:'equus', cases:['nom'], lekt:2, decl:'2m', word:'equus', meaning:'Pferd', num:'sg' },
+    { form:'equi', cases:['gen'], lekt:2, decl:'2m', word:'equus', meaning:'Pferd', num:'sg' },
+    { form:'equo', cases:['dat','abl'], lekt:2, decl:'2m', word:'equus', meaning:'Pferd', num:'sg' },
+    { form:'equum', cases:['akk'], lekt:2, decl:'2m', word:'equus', meaning:'Pferd', num:'sg' },
+    { form:'equi', cases:['nom'], lekt:2, decl:'2m', word:'equus', meaning:'Pferd', num:'pl' },
+    { form:'equorum', cases:['gen'], lekt:2, decl:'2m', word:'equus', meaning:'Pferd', num:'pl' },
+    { form:'equis', cases:['dat','abl'], lekt:2, decl:'2m', word:'equus', meaning:'Pferd', num:'pl' },
+    { form:'equos', cases:['akk'], lekt:2, decl:'2m', word:'equus', meaning:'Pferd', num:'pl' },
+    { form:'signum', cases:['nom','akk'], lekt:2, decl:'2n', word:'signum', meaning:'Zeichen', num:'sg' },
+    { form:'signi', cases:['gen'], lekt:2, decl:'2n', word:'signum', meaning:'Zeichen', num:'sg' },
+    { form:'signo', cases:['dat','abl'], lekt:2, decl:'2n', word:'signum', meaning:'Zeichen', num:'sg' },
+    { form:'signa', cases:['nom','akk'], lekt:2, decl:'2n', word:'signum', meaning:'Zeichen', num:'pl' },
+    { form:'signorum', cases:['gen'], lekt:2, decl:'2n', word:'signum', meaning:'Zeichen', num:'pl' },
+    { form:'signis', cases:['dat','abl'], lekt:2, decl:'2n', word:'signum', meaning:'Zeichen', num:'pl' },
+    { form:'victor', cases:['nom'], lekt:2, decl:'3', word:'victor', meaning:'Sieger', num:'sg' },
+    { form:'victoris', cases:['gen'], lekt:2, decl:'3', word:'victor', meaning:'Sieger', num:'sg' },
+    { form:'victori', cases:['dat'], lekt:2, decl:'3', word:'victor', meaning:'Sieger', num:'sg' },
+    { form:'victorem', cases:['akk'], lekt:2, decl:'3', word:'victor', meaning:'Sieger', num:'sg' },
+    { form:'victore', cases:['abl'], lekt:2, decl:'3', word:'victor', meaning:'Sieger', num:'sg' },
+    { form:'victores', cases:['nom','akk'], lekt:2, decl:'3', word:'victor', meaning:'Sieger', num:'pl' },
+    { form:'victorum', cases:['gen'], lekt:2, decl:'3', word:'victor', meaning:'Sieger', num:'pl' },
+    { form:'victoribus', cases:['dat','abl'], lekt:2, decl:'3', word:'victor', meaning:'Sieger', num:'pl' },
+    { form:'praemium', cases:['nom','akk'], lekt:2, decl:'2n', word:'praemium', meaning:'Belohnung, Preis', num:'sg' },
+    { form:'praemii', cases:['gen'], lekt:2, decl:'2n', word:'praemium', meaning:'Belohnung, Preis', num:'sg' },
+    { form:'praemio', cases:['dat','abl'], lekt:2, decl:'2n', word:'praemium', meaning:'Belohnung, Preis', num:'sg' },
+    { form:'praemia', cases:['nom','akk'], lekt:2, decl:'2n', word:'praemium', meaning:'Belohnung, Preis', num:'pl' },
+    { form:'praemiorum', cases:['gen'], lekt:2, decl:'2n', word:'praemium', meaning:'Belohnung, Preis', num:'pl' },
+    { form:'praemiis', cases:['dat','abl'], lekt:2, decl:'2n', word:'praemium', meaning:'Belohnung, Preis', num:'pl' },
+    { form:'amica', cases:['nom','abl'], lekt:3, decl:'1', word:'amica', meaning:'Freundin', num:'sg' },
+    { form:'amicae', cases:['gen','dat'], lekt:3, decl:'1', word:'amica', meaning:'Freundin', num:'sg' },
+    { form:'amicam', cases:['akk'], lekt:3, decl:'1', word:'amica', meaning:'Freundin', num:'sg' },
+    { form:'amicae', cases:['nom'], lekt:3, decl:'1', word:'amica', meaning:'Freundin', num:'pl' },
+    { form:'amicarum', cases:['gen'], lekt:3, decl:'1', word:'amica', meaning:'Freundin', num:'pl' },
+    { form:'amicis', cases:['dat','abl'], lekt:3, decl:'1', word:'amica', meaning:'Freundin', num:'pl' },
+    { form:'amicas', cases:['akk'], lekt:3, decl:'1', word:'amica', meaning:'Freundin', num:'pl' },
+    { form:'templum', cases:['nom','akk'], lekt:3, decl:'2n', word:'templum', meaning:'Tempel', num:'sg' },
+    { form:'templi', cases:['gen'], lekt:3, decl:'2n', word:'templum', meaning:'Tempel', num:'sg' },
+    { form:'templo', cases:['dat','abl'], lekt:3, decl:'2n', word:'templum', meaning:'Tempel', num:'sg' },
+    { form:'templa', cases:['nom','akk'], lekt:3, decl:'2n', word:'templum', meaning:'Tempel', num:'pl' },
+    { form:'templorum', cases:['gen'], lekt:3, decl:'2n', word:'templum', meaning:'Tempel', num:'pl' },
+    { form:'templis', cases:['dat','abl'], lekt:3, decl:'2n', word:'templum', meaning:'Tempel', num:'pl' },
+    { form:'aedificium', cases:['nom','akk'], lekt:3, decl:'2n', word:'aedificium', meaning:'Gebäude', num:'sg' },
+    { form:'aedificii', cases:['gen'], lekt:3, decl:'2n', word:'aedificium', meaning:'Gebäude', num:'sg' },
+    { form:'aedificio', cases:['dat','abl'], lekt:3, decl:'2n', word:'aedificium', meaning:'Gebäude', num:'sg' },
+    { form:'aedificia', cases:['nom','akk'], lekt:3, decl:'2n', word:'aedificium', meaning:'Gebäude', num:'pl' },
+    { form:'aedificiorum', cases:['gen'], lekt:3, decl:'2n', word:'aedificium', meaning:'Gebäude', num:'pl' },
+    { form:'aedificiis', cases:['dat','abl'], lekt:3, decl:'2n', word:'aedificium', meaning:'Gebäude', num:'pl' },
+    { form:'basilica', cases:['nom','abl'], lekt:3, decl:'1', word:'basilica', meaning:'Basilika, Halle', num:'sg' },
+    { form:'basilicae', cases:['gen','dat'], lekt:3, decl:'1', word:'basilica', meaning:'Basilika, Halle', num:'sg' },
+    { form:'basilicam', cases:['akk'], lekt:3, decl:'1', word:'basilica', meaning:'Basilika, Halle', num:'sg' },
+    { form:'basilicae', cases:['nom'], lekt:3, decl:'1', word:'basilica', meaning:'Basilika, Halle', num:'pl' },
+    { form:'basilicarum', cases:['gen'], lekt:3, decl:'1', word:'basilica', meaning:'Basilika, Halle', num:'pl' },
+    { form:'basilicis', cases:['dat','abl'], lekt:3, decl:'1', word:'basilica', meaning:'Basilika, Halle', num:'pl' },
+    { form:'basilicas', cases:['akk'], lekt:3, decl:'1', word:'basilica', meaning:'Basilika, Halle', num:'pl' },
+    { form:'mercator', cases:['nom'], lekt:3, decl:'3', word:'mercator', meaning:'Kaufmann', num:'sg' },
+    { form:'mercatoris', cases:['gen'], lekt:3, decl:'3', word:'mercator', meaning:'Kaufmann', num:'sg' },
+    { form:'mercatori', cases:['dat'], lekt:3, decl:'3', word:'mercator', meaning:'Kaufmann', num:'sg' },
+    { form:'mercatorem', cases:['akk'], lekt:3, decl:'3', word:'mercator', meaning:'Kaufmann', num:'sg' },
+    { form:'mercatore', cases:['abl'], lekt:3, decl:'3', word:'mercator', meaning:'Kaufmann', num:'sg' },
+    { form:'mercatores', cases:['nom','akk'], lekt:3, decl:'3', word:'mercator', meaning:'Kaufmann', num:'pl' },
+    { form:'mercatorum', cases:['gen'], lekt:3, decl:'3', word:'mercator', meaning:'Kaufmann', num:'pl' },
+    { form:'mercatoribus', cases:['dat','abl'], lekt:3, decl:'3', word:'mercator', meaning:'Kaufmann', num:'pl' },
+    { form:'bestia', cases:['nom','abl'], lekt:3, decl:'1', word:'bestia', meaning:'Tier', num:'sg' },
+    { form:'bestiae', cases:['gen','dat'], lekt:3, decl:'1', word:'bestia', meaning:'Tier', num:'sg' },
+    { form:'bestiam', cases:['akk'], lekt:3, decl:'1', word:'bestia', meaning:'Tier', num:'sg' },
+    { form:'bestiae', cases:['nom'], lekt:3, decl:'1', word:'bestia', meaning:'Tier', num:'pl' },
+    { form:'bestiarum', cases:['gen'], lekt:3, decl:'1', word:'bestia', meaning:'Tier', num:'pl' },
+    { form:'bestiis', cases:['dat','abl'], lekt:3, decl:'1', word:'bestia', meaning:'Tier', num:'pl' },
+    { form:'bestias', cases:['akk'], lekt:3, decl:'1', word:'bestia', meaning:'Tier', num:'pl' },
+    { form:'taberna', cases:['nom','abl'], lekt:3, decl:'1', word:'taberna', meaning:'Laden, Werkstatt', num:'sg' },
+    { form:'tabernae', cases:['gen','dat'], lekt:3, decl:'1', word:'taberna', meaning:'Laden, Werkstatt', num:'sg' },
+    { form:'tabernam', cases:['akk'], lekt:3, decl:'1', word:'taberna', meaning:'Laden, Werkstatt', num:'sg' },
+    { form:'tabernae', cases:['nom'], lekt:3, decl:'1', word:'taberna', meaning:'Laden, Werkstatt', num:'pl' },
+    { form:'tabernarum', cases:['gen'], lekt:3, decl:'1', word:'taberna', meaning:'Laden, Werkstatt', num:'pl' },
+    { form:'tabernis', cases:['dat','abl'], lekt:3, decl:'1', word:'taberna', meaning:'Laden, Werkstatt', num:'pl' },
+    { form:'tabernas', cases:['akk'], lekt:3, decl:'1', word:'taberna', meaning:'Laden, Werkstatt', num:'pl' },
+    { form:'mulier', cases:['nom'], lekt:3, decl:'3', word:'mulier', meaning:'Frau', num:'sg' },
+    { form:'mulieris', cases:['gen'], lekt:3, decl:'3', word:'mulier', meaning:'Frau', num:'sg' },
+    { form:'mulieri', cases:['dat'], lekt:3, decl:'3', word:'mulier', meaning:'Frau', num:'sg' },
+    { form:'mulierem', cases:['akk'], lekt:3, decl:'3', word:'mulier', meaning:'Frau', num:'sg' },
+    { form:'muliere', cases:['abl'], lekt:3, decl:'3', word:'mulier', meaning:'Frau', num:'sg' },
+    { form:'mulieres', cases:['nom','akk'], lekt:3, decl:'3', word:'mulier', meaning:'Frau', num:'pl' },
+    { form:'mulierum', cases:['gen'], lekt:3, decl:'3', word:'mulier', meaning:'Frau', num:'pl' },
+    { form:'mulieribus', cases:['dat','abl'], lekt:3, decl:'3', word:'mulier', meaning:'Frau', num:'pl' },
+    { form:'clamor', cases:['nom'], lekt:3, decl:'3', word:'clamor', meaning:'Geschrei, Lärm', num:'sg' },
+    { form:'clamoris', cases:['gen'], lekt:3, decl:'3', word:'clamor', meaning:'Geschrei, Lärm', num:'sg' },
+    { form:'clamori', cases:['dat'], lekt:3, decl:'3', word:'clamor', meaning:'Geschrei, Lärm', num:'sg' },
+    { form:'clamorem', cases:['akk'], lekt:3, decl:'3', word:'clamor', meaning:'Geschrei, Lärm', num:'sg' },
+    { form:'clamore', cases:['abl'], lekt:3, decl:'3', word:'clamor', meaning:'Geschrei, Lärm', num:'sg' },
+    { form:'clamores', cases:['nom','akk'], lekt:3, decl:'3', word:'clamor', meaning:'Geschrei, Lärm', num:'pl' },
+    { form:'clamorum', cases:['gen'], lekt:3, decl:'3', word:'clamor', meaning:'Geschrei, Lärm', num:'pl' },
+    { form:'clamoribus', cases:['dat','abl'], lekt:3, decl:'3', word:'clamor', meaning:'Geschrei, Lärm', num:'pl' },
+    { form:'vestis', cases:['nom','gen'], lekt:4, decl:'3', word:'vestis', meaning:'Kleid, Kleidung', num:'sg' },
+    { form:'vesti', cases:['dat'], lekt:4, decl:'3', word:'vestis', meaning:'Kleid, Kleidung', num:'sg' },
+    { form:'vestem', cases:['akk'], lekt:4, decl:'3', word:'vestis', meaning:'Kleid, Kleidung', num:'sg' },
+    { form:'veste', cases:['abl'], lekt:4, decl:'3', word:'vestis', meaning:'Kleid, Kleidung', num:'sg' },
+    { form:'vestes', cases:['nom','akk'], lekt:4, decl:'3', word:'vestis', meaning:'Kleid, Kleidung', num:'pl' },
+    { form:'vestium', cases:['gen'], lekt:4, decl:'3', word:'vestis', meaning:'Kleid, Kleidung', num:'pl' },
+    { form:'vestibus', cases:['dat','abl'], lekt:4, decl:'3', word:'vestis', meaning:'Kleid, Kleidung', num:'pl' },
+    { form:'donum', cases:['nom','akk'], lekt:4, decl:'2n', word:'donum', meaning:'Geschenk', num:'sg' },
+    { form:'doni', cases:['gen'], lekt:4, decl:'2n', word:'donum', meaning:'Geschenk', num:'sg' },
+    { form:'dono', cases:['dat','abl'], lekt:4, decl:'2n', word:'donum', meaning:'Geschenk', num:'sg' },
+    { form:'dona', cases:['nom','akk'], lekt:4, decl:'2n', word:'donum', meaning:'Geschenk', num:'pl' },
+    { form:'donorum', cases:['gen'], lekt:4, decl:'2n', word:'donum', meaning:'Geschenk', num:'pl' },
+    { form:'donis', cases:['dat','abl'], lekt:4, decl:'2n', word:'donum', meaning:'Geschenk', num:'pl' },
+    { form:'senex', cases:['nom'], lekt:4, decl:'3', word:'senex', meaning:'Greis, alter Mann', num:'sg' },
+    { form:'senis', cases:['gen'], lekt:4, decl:'3', word:'senex', meaning:'Greis, alter Mann', num:'sg' },
+    { form:'seni', cases:['dat'], lekt:4, decl:'3', word:'senex', meaning:'Greis, alter Mann', num:'sg' },
+    { form:'senem', cases:['akk'], lekt:4, decl:'3', word:'senex', meaning:'Greis, alter Mann', num:'sg' },
+    { form:'sene', cases:['abl'], lekt:4, decl:'3', word:'senex', meaning:'Greis, alter Mann', num:'sg' },
+    { form:'senes', cases:['nom','akk'], lekt:4, decl:'3', word:'senex', meaning:'Greis, alter Mann', num:'pl' },
+    { form:'senum', cases:['gen'], lekt:4, decl:'3', word:'senex', meaning:'Greis, alter Mann', num:'pl' },
+    { form:'senibus', cases:['dat','abl'], lekt:4, decl:'3', word:'senex', meaning:'Greis, alter Mann', num:'pl' },
+    { form:'vinum', cases:['nom','akk'], lekt:4, decl:'2n', word:'vinum', meaning:'Wein', num:'sg' },
+    { form:'vini', cases:['gen'], lekt:4, decl:'2n', word:'vinum', meaning:'Wein', num:'sg' },
+    { form:'vino', cases:['dat','abl'], lekt:4, decl:'2n', word:'vinum', meaning:'Wein', num:'sg' },
+    { form:'vina', cases:['nom','akk'], lekt:4, decl:'2n', word:'vinum', meaning:'Wein', num:'pl' },
+    { form:'vinorum', cases:['gen'], lekt:4, decl:'2n', word:'vinum', meaning:'Wein', num:'pl' },
+    { form:'vinis', cases:['dat','abl'], lekt:4, decl:'2n', word:'vinum', meaning:'Wein', num:'pl' },
+    { form:'pecunia', cases:['nom','abl'], lekt:4, decl:'1', word:'pecunia', meaning:'Geld, Vermögen', num:'sg' },
+    { form:'pecuniae', cases:['gen','dat'], lekt:4, decl:'1', word:'pecunia', meaning:'Geld, Vermögen', num:'sg' },
+    { form:'pecuniam', cases:['akk'], lekt:4, decl:'1', word:'pecunia', meaning:'Geld, Vermögen', num:'sg' },
+    { form:'pecuniae', cases:['nom'], lekt:4, decl:'1', word:'pecunia', meaning:'Geld, Vermögen', num:'pl' },
+    { form:'pecuniarum', cases:['gen'], lekt:4, decl:'1', word:'pecunia', meaning:'Geld, Vermögen', num:'pl' },
+    { form:'pecuniis', cases:['dat','abl'], lekt:4, decl:'1', word:'pecunia', meaning:'Geld, Vermögen', num:'pl' },
+    { form:'pecunias', cases:['akk'], lekt:4, decl:'1', word:'pecunia', meaning:'Geld, Vermögen', num:'pl' },
+    { form:'fur', cases:['nom'], lekt:4, decl:'3', word:'fur', meaning:'Dieb', num:'sg' },
+    { form:'furis', cases:['gen'], lekt:4, decl:'3', word:'fur', meaning:'Dieb', num:'sg' },
+    { form:'furi', cases:['dat'], lekt:4, decl:'3', word:'fur', meaning:'Dieb', num:'sg' },
+    { form:'furem', cases:['akk'], lekt:4, decl:'3', word:'fur', meaning:'Dieb', num:'sg' },
+    { form:'fure', cases:['abl'], lekt:4, decl:'3', word:'fur', meaning:'Dieb', num:'sg' },
+    { form:'fures', cases:['nom','akk'], lekt:4, decl:'3', word:'fur', meaning:'Dieb', num:'pl' },
+    { form:'furum', cases:['gen'], lekt:4, decl:'3', word:'fur', meaning:'Dieb', num:'pl' },
+    { form:'furibus', cases:['dat','abl'], lekt:4, decl:'3', word:'fur', meaning:'Dieb', num:'pl' },
+    { form:'uxor', cases:['nom'], lekt:4, decl:'3', word:'uxor', meaning:'Ehefrau', num:'sg' },
+    { form:'uxoris', cases:['gen'], lekt:4, decl:'3', word:'uxor', meaning:'Ehefrau', num:'sg' },
+    { form:'uxori', cases:['dat'], lekt:4, decl:'3', word:'uxor', meaning:'Ehefrau', num:'sg' },
+    { form:'uxorem', cases:['akk'], lekt:4, decl:'3', word:'uxor', meaning:'Ehefrau', num:'sg' },
+    { form:'uxore', cases:['abl'], lekt:4, decl:'3', word:'uxor', meaning:'Ehefrau', num:'sg' },
+    { form:'uxores', cases:['nom','akk'], lekt:4, decl:'3', word:'uxor', meaning:'Ehefrau', num:'pl' },
+    { form:'uxorum', cases:['gen'], lekt:4, decl:'3', word:'uxor', meaning:'Ehefrau', num:'pl' },
+    { form:'uxoribus', cases:['dat','abl'], lekt:4, decl:'3', word:'uxor', meaning:'Ehefrau', num:'pl' },
+    { form:'adulescens', cases:['nom'], lekt:4, decl:'3', word:'adulescens', meaning:'junger Mann', num:'sg' },
+    { form:'adulescentis', cases:['gen'], lekt:4, decl:'3', word:'adulescens', meaning:'junger Mann', num:'sg' },
+    { form:'adulescenti', cases:['dat'], lekt:4, decl:'3', word:'adulescens', meaning:'junger Mann', num:'sg' },
+    { form:'adulescentem', cases:['akk'], lekt:4, decl:'3', word:'adulescens', meaning:'junger Mann', num:'sg' },
+    { form:'adulescente', cases:['abl'], lekt:4, decl:'3', word:'adulescens', meaning:'junger Mann', num:'sg' },
+    { form:'adulescentes', cases:['nom','akk'], lekt:4, decl:'3', word:'adulescens', meaning:'junger Mann', num:'pl' },
+    { form:'adulescentium', cases:['gen'], lekt:4, decl:'3', word:'adulescens', meaning:'junger Mann', num:'pl' },
+    { form:'adulescentibus', cases:['dat','abl'], lekt:4, decl:'3', word:'adulescens', meaning:'junger Mann', num:'pl' },
+    { form:'thermae', cases:['nom'], lekt:4, decl:'1', word:'thermae', meaning:'Thermen, Badeanlage', num:'pl' },
+    { form:'thermarum', cases:['gen'], lekt:4, decl:'1', word:'thermae', meaning:'Thermen, Badeanlage', num:'pl' },
+    { form:'thermis', cases:['dat','abl'], lekt:4, decl:'1', word:'thermae', meaning:'Thermen, Badeanlage', num:'pl' },
+    { form:'thermas', cases:['akk'], lekt:4, decl:'1', word:'thermae', meaning:'Thermen, Badeanlage', num:'pl' },
+    { form:'nuntius', cases:['nom'], lekt:5, decl:'2m', word:'nuntius', meaning:'Bote, Nachricht', num:'sg' },
+    { form:'nuntii', cases:['gen'], lekt:5, decl:'2m', word:'nuntius', meaning:'Bote, Nachricht', num:'sg' },
+    { form:'nuntio', cases:['dat','abl'], lekt:5, decl:'2m', word:'nuntius', meaning:'Bote, Nachricht', num:'sg' },
+    { form:'nuntium', cases:['akk'], lekt:5, decl:'2m', word:'nuntius', meaning:'Bote, Nachricht', num:'sg' },
+    { form:'nuntii', cases:['nom'], lekt:5, decl:'2m', word:'nuntius', meaning:'Bote, Nachricht', num:'pl' },
+    { form:'nuntiorum', cases:['gen'], lekt:5, decl:'2m', word:'nuntius', meaning:'Bote, Nachricht', num:'pl' },
+    { form:'nuntiis', cases:['dat','abl'], lekt:5, decl:'2m', word:'nuntius', meaning:'Bote, Nachricht', num:'pl' },
+    { form:'nuntios', cases:['akk'], lekt:5, decl:'2m', word:'nuntius', meaning:'Bote, Nachricht', num:'pl' },
+    { form:'victoria', cases:['nom','abl'], lekt:5, decl:'1', word:'victoria', meaning:'Sieg', num:'sg' },
+    { form:'victoriae', cases:['gen','dat'], lekt:5, decl:'1', word:'victoria', meaning:'Sieg', num:'sg' },
+    { form:'victoriam', cases:['akk'], lekt:5, decl:'1', word:'victoria', meaning:'Sieg', num:'sg' },
+    { form:'victoriae', cases:['nom'], lekt:5, decl:'1', word:'victoria', meaning:'Sieg', num:'pl' },
+    { form:'victoriarum', cases:['gen'], lekt:5, decl:'1', word:'victoria', meaning:'Sieg', num:'pl' },
+    { form:'victoriis', cases:['dat','abl'], lekt:5, decl:'1', word:'victoria', meaning:'Sieg', num:'pl' },
+    { form:'victorias', cases:['akk'], lekt:5, decl:'1', word:'victoria', meaning:'Sieg', num:'pl' },
+    { form:'consul', cases:['nom'], lekt:5, decl:'3', word:'consul', meaning:'Konsul', num:'sg' },
+    { form:'consulis', cases:['gen'], lekt:5, decl:'3', word:'consul', meaning:'Konsul', num:'sg' },
+    { form:'consuli', cases:['dat'], lekt:5, decl:'3', word:'consul', meaning:'Konsul', num:'sg' },
+    { form:'consulem', cases:['akk'], lekt:5, decl:'3', word:'consul', meaning:'Konsul', num:'sg' },
+    { form:'consule', cases:['abl'], lekt:5, decl:'3', word:'consul', meaning:'Konsul', num:'sg' },
+    { form:'consules', cases:['nom','akk'], lekt:5, decl:'3', word:'consul', meaning:'Konsul', num:'pl' },
+    { form:'consulum', cases:['gen'], lekt:5, decl:'3', word:'consul', meaning:'Konsul', num:'pl' },
+    { form:'consulibus', cases:['dat','abl'], lekt:5, decl:'3', word:'consul', meaning:'Konsul', num:'pl' },
+    { form:'lictor', cases:['nom'], lekt:5, decl:'3', word:'lictor', meaning:'Liktor', num:'sg' },
+    { form:'lictoris', cases:['gen'], lekt:5, decl:'3', word:'lictor', meaning:'Liktor', num:'sg' },
+    { form:'lictori', cases:['dat'], lekt:5, decl:'3', word:'lictor', meaning:'Liktor', num:'sg' },
+    { form:'lictorem', cases:['akk'], lekt:5, decl:'3', word:'lictor', meaning:'Liktor', num:'sg' },
+    { form:'lictore', cases:['abl'], lekt:5, decl:'3', word:'lictor', meaning:'Liktor', num:'sg' },
+    { form:'lictores', cases:['nom','akk'], lekt:5, decl:'3', word:'lictor', meaning:'Liktor', num:'pl' },
+    { form:'lictorum', cases:['gen'], lekt:5, decl:'3', word:'lictor', meaning:'Liktor', num:'pl' },
+    { form:'lictoribus', cases:['dat','abl'], lekt:5, decl:'3', word:'lictor', meaning:'Liktor', num:'pl' },
+    { form:'iniuria', cases:['nom','abl'], lekt:5, decl:'1', word:'iniuria', meaning:'Unrecht, Beleidigung', num:'sg' },
+    { form:'iniuriae', cases:['gen','dat'], lekt:5, decl:'1', word:'iniuria', meaning:'Unrecht, Beleidigung', num:'sg' },
+    { form:'iniuriam', cases:['akk'], lekt:5, decl:'1', word:'iniuria', meaning:'Unrecht, Beleidigung', num:'sg' },
+    { form:'iniuriae', cases:['nom'], lekt:5, decl:'1', word:'iniuria', meaning:'Unrecht, Beleidigung', num:'pl' },
+    { form:'iniuriarum', cases:['gen'], lekt:5, decl:'1', word:'iniuria', meaning:'Unrecht, Beleidigung', num:'pl' },
+    { form:'iniuriis', cases:['dat','abl'], lekt:5, decl:'1', word:'iniuria', meaning:'Unrecht, Beleidigung', num:'pl' },
+    { form:'iniurias', cases:['akk'], lekt:5, decl:'1', word:'iniuria', meaning:'Unrecht, Beleidigung', num:'pl' },
+    { form:'barbarus', cases:['nom'], lekt:5, decl:'2m', word:'barbarus', meaning:'Ausländer, „Barbar“', num:'sg' },
+    { form:'barbari', cases:['gen'], lekt:5, decl:'2m', word:'barbarus', meaning:'Ausländer, „Barbar“', num:'sg' },
+    { form:'barbaro', cases:['dat','abl'], lekt:5, decl:'2m', word:'barbarus', meaning:'Ausländer, „Barbar“', num:'sg' },
+    { form:'barbarum', cases:['akk'], lekt:5, decl:'2m', word:'barbarus', meaning:'Ausländer, „Barbar“', num:'sg' },
+    { form:'barbari', cases:['nom'], lekt:5, decl:'2m', word:'barbarus', meaning:'Ausländer, „Barbar“', num:'pl' },
+    { form:'barbarorum', cases:['gen'], lekt:5, decl:'2m', word:'barbarus', meaning:'Ausländer, „Barbar“', num:'pl' },
+    { form:'barbaris', cases:['dat','abl'], lekt:5, decl:'2m', word:'barbarus', meaning:'Ausländer, „Barbar“', num:'pl' },
+    { form:'barbaros', cases:['akk'], lekt:5, decl:'2m', word:'barbarus', meaning:'Ausländer, „Barbar“', num:'pl' },
+    { form:'patria', cases:['nom','abl'], lekt:5, decl:'1', word:'patria', meaning:'Heimat', num:'sg' },
+    { form:'patriae', cases:['gen','dat'], lekt:5, decl:'1', word:'patria', meaning:'Heimat', num:'sg' },
+    { form:'patriam', cases:['akk'], lekt:5, decl:'1', word:'patria', meaning:'Heimat', num:'sg' },
+    { form:'patriae', cases:['nom'], lekt:5, decl:'1', word:'patria', meaning:'Heimat', num:'pl' },
+    { form:'patriarum', cases:['gen'], lekt:5, decl:'1', word:'patria', meaning:'Heimat', num:'pl' },
+    { form:'patriis', cases:['dat','abl'], lekt:5, decl:'1', word:'patria', meaning:'Heimat', num:'pl' },
+    { form:'patrias', cases:['akk'], lekt:5, decl:'1', word:'patria', meaning:'Heimat', num:'pl' },
+    { form:'deus', cases:['nom'], lekt:5, decl:'2m', word:'deus', meaning:'Gott, Gottheit', num:'sg' },
+    { form:'dei', cases:['gen'], lekt:5, decl:'2m', word:'deus', meaning:'Gott, Gottheit', num:'sg' },
+    { form:'deo', cases:['dat','abl'], lekt:5, decl:'2m', word:'deus', meaning:'Gott, Gottheit', num:'sg' },
+    { form:'deum', cases:['akk'], lekt:5, decl:'2m', word:'deus', meaning:'Gott, Gottheit', num:'sg' },
+    { form:'dei', cases:['nom'], lekt:5, decl:'2m', word:'deus', meaning:'Gott, Gottheit', num:'pl' },
+    { form:'deorum', cases:['gen'], lekt:5, decl:'2m', word:'deus', meaning:'Gott, Gottheit', num:'pl' },
+    { form:'deis', cases:['dat','abl'], lekt:5, decl:'2m', word:'deus', meaning:'Gott, Gottheit', num:'pl' },
+    { form:'deos', cases:['akk'], lekt:5, decl:'2m', word:'deus', meaning:'Gott, Gottheit', num:'pl' },
+    { form:'periculum', cases:['nom','akk'], lekt:5, decl:'2n', word:'periculum', meaning:'Gefahr', num:'sg' },
+    { form:'periculi', cases:['gen'], lekt:5, decl:'2n', word:'periculum', meaning:'Gefahr', num:'sg' },
+    { form:'periculo', cases:['dat','abl'], lekt:5, decl:'2n', word:'periculum', meaning:'Gefahr', num:'sg' },
+    { form:'pericula', cases:['nom','akk'], lekt:5, decl:'2n', word:'periculum', meaning:'Gefahr', num:'pl' },
+    { form:'periculorum', cases:['gen'], lekt:5, decl:'2n', word:'periculum', meaning:'Gefahr', num:'pl' },
+    { form:'periculis', cases:['dat','abl'], lekt:5, decl:'2n', word:'periculum', meaning:'Gefahr', num:'pl' },
+    { form:'arma', cases:['nom','akk'], lekt:5, decl:'2n', word:'arma', meaning:'Waffen, Gerät', num:'pl' },
+    { form:'armorum', cases:['gen'], lekt:5, decl:'2n', word:'arma', meaning:'Waffen, Gerät', num:'pl' },
+    { form:'armis', cases:['dat','abl'], lekt:5, decl:'2n', word:'arma', meaning:'Waffen, Gerät', num:'pl' },
+    { form:'puer', cases:['nom'], lekt:6, decl:'2m', word:'puer', meaning:'Junge, Bub', num:'sg' },
+    { form:'pueri', cases:['gen'], lekt:6, decl:'2m', word:'puer', meaning:'Junge, Bub', num:'sg' },
+    { form:'puero', cases:['dat','abl'], lekt:6, decl:'2m', word:'puer', meaning:'Junge, Bub', num:'sg' },
+    { form:'puerum', cases:['akk'], lekt:6, decl:'2m', word:'puer', meaning:'Junge, Bub', num:'sg' },
+    { form:'pueri', cases:['nom'], lekt:6, decl:'2m', word:'puer', meaning:'Junge, Bub', num:'pl' },
+    { form:'puerorum', cases:['gen'], lekt:6, decl:'2m', word:'puer', meaning:'Junge, Bub', num:'pl' },
+    { form:'pueris', cases:['dat','abl'], lekt:6, decl:'2m', word:'puer', meaning:'Junge, Bub', num:'pl' },
+    { form:'pueros', cases:['akk'], lekt:6, decl:'2m', word:'puer', meaning:'Junge, Bub', num:'pl' },
+    { form:'domina', cases:['nom','abl'], lekt:6, decl:'1', word:'domina', meaning:'Herrin', num:'sg' },
+    { form:'dominae', cases:['gen','dat'], lekt:6, decl:'1', word:'domina', meaning:'Herrin', num:'sg' },
+    { form:'dominam', cases:['akk'], lekt:6, decl:'1', word:'domina', meaning:'Herrin', num:'sg' },
+    { form:'dominae', cases:['nom'], lekt:6, decl:'1', word:'domina', meaning:'Herrin', num:'pl' },
+    { form:'dominarum', cases:['gen'], lekt:6, decl:'1', word:'domina', meaning:'Herrin', num:'pl' },
+    { form:'dominis', cases:['dat','abl'], lekt:6, decl:'1', word:'domina', meaning:'Herrin', num:'pl' },
+    { form:'dominas', cases:['akk'], lekt:6, decl:'1', word:'domina', meaning:'Herrin', num:'pl' },
+    { form:'serva', cases:['nom','abl'], lekt:6, decl:'1', word:'serva', meaning:'Sklavin', num:'sg' },
+    { form:'servae', cases:['gen','dat'], lekt:6, decl:'1', word:'serva', meaning:'Sklavin', num:'sg' },
+    { form:'servam', cases:['akk'], lekt:6, decl:'1', word:'serva', meaning:'Sklavin', num:'sg' },
+    { form:'servae', cases:['nom'], lekt:6, decl:'1', word:'serva', meaning:'Sklavin', num:'pl' },
+    { form:'servarum', cases:['gen'], lekt:6, decl:'1', word:'serva', meaning:'Sklavin', num:'pl' },
+    { form:'servis', cases:['dat','abl'], lekt:6, decl:'1', word:'serva', meaning:'Sklavin', num:'pl' },
+    { form:'servas', cases:['akk'], lekt:6, decl:'1', word:'serva', meaning:'Sklavin', num:'pl' },
+    { form:'mensa', cases:['nom','abl'], lekt:6, decl:'1', word:'mensa', meaning:'Tisch', num:'sg' },
+    { form:'mensae', cases:['gen','dat'], lekt:6, decl:'1', word:'mensa', meaning:'Tisch', num:'sg' },
+    { form:'mensam', cases:['akk'], lekt:6, decl:'1', word:'mensa', meaning:'Tisch', num:'sg' },
+    { form:'mensae', cases:['nom'], lekt:6, decl:'1', word:'mensa', meaning:'Tisch', num:'pl' },
+    { form:'mensarum', cases:['gen'], lekt:6, decl:'1', word:'mensa', meaning:'Tisch', num:'pl' },
+    { form:'mensis', cases:['dat','abl'], lekt:6, decl:'1', word:'mensa', meaning:'Tisch', num:'pl' },
+    { form:'mensas', cases:['akk'], lekt:6, decl:'1', word:'mensa', meaning:'Tisch', num:'pl' },
+    { form:'cena', cases:['nom','abl'], lekt:6, decl:'1', word:'cena', meaning:'Essen, Mahlzeit', num:'sg' },
+    { form:'cenae', cases:['gen','dat'], lekt:6, decl:'1', word:'cena', meaning:'Essen, Mahlzeit', num:'sg' },
+    { form:'cenam', cases:['akk'], lekt:6, decl:'1', word:'cena', meaning:'Essen, Mahlzeit', num:'sg' },
+    { form:'cenae', cases:['nom'], lekt:6, decl:'1', word:'cena', meaning:'Essen, Mahlzeit', num:'pl' },
+    { form:'cenarum', cases:['gen'], lekt:6, decl:'1', word:'cena', meaning:'Essen, Mahlzeit', num:'pl' },
+    { form:'cenis', cases:['dat','abl'], lekt:6, decl:'1', word:'cena', meaning:'Essen, Mahlzeit', num:'pl' },
+    { form:'cenas', cases:['akk'], lekt:6, decl:'1', word:'cena', meaning:'Essen, Mahlzeit', num:'pl' },
+    { form:'puella', cases:['nom','abl'], lekt:6, decl:'1', word:'puella', meaning:'Mädchen', num:'sg' },
+    { form:'puellae', cases:['gen','dat'], lekt:6, decl:'1', word:'puella', meaning:'Mädchen', num:'sg' },
+    { form:'puellam', cases:['akk'], lekt:6, decl:'1', word:'puella', meaning:'Mädchen', num:'sg' },
+    { form:'puellae', cases:['nom'], lekt:6, decl:'1', word:'puella', meaning:'Mädchen', num:'pl' },
+    { form:'puellarum', cases:['gen'], lekt:6, decl:'1', word:'puella', meaning:'Mädchen', num:'pl' },
+    { form:'puellis', cases:['dat','abl'], lekt:6, decl:'1', word:'puella', meaning:'Mädchen', num:'pl' },
+    { form:'puellas', cases:['akk'], lekt:6, decl:'1', word:'puella', meaning:'Mädchen', num:'pl' },
+    { form:'mater', cases:['nom'], lekt:6, decl:'3', word:'mater', meaning:'Mutter', num:'sg' },
+    { form:'matris', cases:['gen'], lekt:6, decl:'3', word:'mater', meaning:'Mutter', num:'sg' },
+    { form:'matri', cases:['dat'], lekt:6, decl:'3', word:'mater', meaning:'Mutter', num:'sg' },
+    { form:'matrem', cases:['akk'], lekt:6, decl:'3', word:'mater', meaning:'Mutter', num:'sg' },
+    { form:'matre', cases:['abl'], lekt:6, decl:'3', word:'mater', meaning:'Mutter', num:'sg' },
+    { form:'matres', cases:['nom','akk'], lekt:6, decl:'3', word:'mater', meaning:'Mutter', num:'pl' },
+    { form:'matrum', cases:['gen'], lekt:6, decl:'3', word:'mater', meaning:'Mutter', num:'pl' },
+    { form:'matribus', cases:['dat','abl'], lekt:6, decl:'3', word:'mater', meaning:'Mutter', num:'pl' },
+    { form:'aedes', cases:['nom','akk'], lekt:6, decl:'3', word:'aedes', meaning:'Haus, Gebäude', num:'pl' },
+    { form:'aedium', cases:['gen'], lekt:6, decl:'3', word:'aedes', meaning:'Haus, Gebäude', num:'pl' },
+    { form:'aedibus', cases:['dat','abl'], lekt:6, decl:'3', word:'aedes', meaning:'Haus, Gebäude', num:'pl' },
+    { form:'liberi', cases:['nom'], lekt:6, decl:'2m', word:'liberi', meaning:'Kinder', num:'pl' },
+    { form:'liberorum', cases:['gen'], lekt:6, decl:'2m', word:'liberi', meaning:'Kinder', num:'pl' },
+    { form:'liberis', cases:['dat','abl'], lekt:6, decl:'2m', word:'liberi', meaning:'Kinder', num:'pl' },
+    { form:'liberos', cases:['akk'], lekt:6, decl:'2m', word:'liberi', meaning:'Kinder', num:'pl' },
+    { form:'sacrum', cases:['nom','akk'], lekt:7, decl:'2n', word:'sacrum', meaning:'Opfer, Heiligtum', num:'sg' },
+    { form:'sacri', cases:['gen'], lekt:7, decl:'2n', word:'sacrum', meaning:'Opfer, Heiligtum', num:'sg' },
+    { form:'sacro', cases:['dat','abl'], lekt:7, decl:'2n', word:'sacrum', meaning:'Opfer, Heiligtum', num:'sg' },
+    { form:'sacra', cases:['nom','akk'], lekt:7, decl:'2n', word:'sacrum', meaning:'Opfer, Heiligtum', num:'pl' },
+    { form:'sacrorum', cases:['gen'], lekt:7, decl:'2n', word:'sacrum', meaning:'Opfer, Heiligtum', num:'pl' },
+    { form:'sacris', cases:['dat','abl'], lekt:7, decl:'2n', word:'sacrum', meaning:'Opfer, Heiligtum', num:'pl' },
+    { form:'convivium', cases:['nom','akk'], lekt:7, decl:'2n', word:'convivium', meaning:'Gastmahl, Gelage', num:'sg' },
+    { form:'convivii', cases:['gen'], lekt:7, decl:'2n', word:'convivium', meaning:'Gastmahl, Gelage', num:'sg' },
+    { form:'convivio', cases:['dat','abl'], lekt:7, decl:'2n', word:'convivium', meaning:'Gastmahl, Gelage', num:'sg' },
+    { form:'convivia', cases:['nom','akk'], lekt:7, decl:'2n', word:'convivium', meaning:'Gastmahl, Gelage', num:'pl' },
+    { form:'conviviorum', cases:['gen'], lekt:7, decl:'2n', word:'convivium', meaning:'Gastmahl, Gelage', num:'pl' },
+    { form:'conviviis', cases:['dat','abl'], lekt:7, decl:'2n', word:'convivium', meaning:'Gastmahl, Gelage', num:'pl' },
+    { form:'toga', cases:['nom','abl'], lekt:7, decl:'1', word:'toga', meaning:'Toga', num:'sg' },
+    { form:'togae', cases:['gen','dat'], lekt:7, decl:'1', word:'toga', meaning:'Toga', num:'sg' },
+    { form:'togam', cases:['akk'], lekt:7, decl:'1', word:'toga', meaning:'Toga', num:'sg' },
+    { form:'togae', cases:['nom'], lekt:7, decl:'1', word:'toga', meaning:'Toga', num:'pl' },
+    { form:'togarum', cases:['gen'], lekt:7, decl:'1', word:'toga', meaning:'Toga', num:'pl' },
+    { form:'togis', cases:['dat','abl'], lekt:7, decl:'1', word:'toga', meaning:'Toga', num:'pl' },
+    { form:'togas', cases:['akk'], lekt:7, decl:'1', word:'toga', meaning:'Toga', num:'pl' },
+    { form:'tunica', cases:['nom','abl'], lekt:7, decl:'1', word:'tunica', meaning:'Tunika', num:'sg' },
+    { form:'tunicae', cases:['gen','dat'], lekt:7, decl:'1', word:'tunica', meaning:'Tunika', num:'sg' },
+    { form:'tunicam', cases:['akk'], lekt:7, decl:'1', word:'tunica', meaning:'Tunika', num:'sg' },
+    { form:'tunicae', cases:['nom'], lekt:7, decl:'1', word:'tunica', meaning:'Tunika', num:'pl' },
+    { form:'tunicarum', cases:['gen'], lekt:7, decl:'1', word:'tunica', meaning:'Tunika', num:'pl' },
+    { form:'tunicis', cases:['dat','abl'], lekt:7, decl:'1', word:'tunica', meaning:'Tunika', num:'pl' },
+    { form:'tunicas', cases:['akk'], lekt:7, decl:'1', word:'tunica', meaning:'Tunika', num:'pl' },
+    { form:'verbum', cases:['nom','akk'], lekt:7, decl:'2n', word:'verbum', meaning:'Wort, Äußerung', num:'sg' },
+    { form:'verbi', cases:['gen'], lekt:7, decl:'2n', word:'verbum', meaning:'Wort, Äußerung', num:'sg' },
+    { form:'verbo', cases:['dat','abl'], lekt:7, decl:'2n', word:'verbum', meaning:'Wort, Äußerung', num:'sg' },
+    { form:'verba', cases:['nom','akk'], lekt:7, decl:'2n', word:'verbum', meaning:'Wort, Äußerung', num:'pl' },
+    { form:'verborum', cases:['gen'], lekt:7, decl:'2n', word:'verbum', meaning:'Wort, Äußerung', num:'pl' },
+    { form:'verbis', cases:['dat','abl'], lekt:7, decl:'2n', word:'verbum', meaning:'Wort, Äußerung', num:'pl' },
+    { form:'copia', cases:['nom','abl'], lekt:7, decl:'1', word:'copia', meaning:'Menge, Vorrat', num:'sg' },
+    { form:'copiae', cases:['gen','dat'], lekt:7, decl:'1', word:'copia', meaning:'Menge, Vorrat', num:'sg' },
+    { form:'copiam', cases:['akk'], lekt:7, decl:'1', word:'copia', meaning:'Menge, Vorrat', num:'sg' },
+    { form:'copiae', cases:['nom'], lekt:7, decl:'1', word:'copia', meaning:'Menge, Vorrat', num:'pl' },
+    { form:'copiarum', cases:['gen'], lekt:7, decl:'1', word:'copia', meaning:'Menge, Vorrat', num:'pl' },
+    { form:'copiis', cases:['dat','abl'], lekt:7, decl:'1', word:'copia', meaning:'Menge, Vorrat', num:'pl' },
+    { form:'copias', cases:['akk'], lekt:7, decl:'1', word:'copia', meaning:'Menge, Vorrat', num:'pl' },
+    { form:'consilium', cases:['nom','akk'], lekt:7, decl:'2n', word:'consilium', meaning:'Beratung, Plan, Rat', num:'sg' },
+    { form:'consilii', cases:['gen'], lekt:7, decl:'2n', word:'consilium', meaning:'Beratung, Plan, Rat', num:'sg' },
+    { form:'consilio', cases:['dat','abl'], lekt:7, decl:'2n', word:'consilium', meaning:'Beratung, Plan, Rat', num:'sg' },
+    { form:'consilia', cases:['nom','akk'], lekt:7, decl:'2n', word:'consilium', meaning:'Beratung, Plan, Rat', num:'pl' },
+    { form:'consiliorum', cases:['gen'], lekt:7, decl:'2n', word:'consilium', meaning:'Beratung, Plan, Rat', num:'pl' },
+    { form:'consiliis', cases:['dat','abl'], lekt:7, decl:'2n', word:'consilium', meaning:'Beratung, Plan, Rat', num:'pl' },
+    { form:'filius', cases:['nom'], lekt:7, decl:'2m', word:'filius', meaning:'Sohn', num:'sg' },
+    { form:'filii', cases:['gen'], lekt:7, decl:'2m', word:'filius', meaning:'Sohn', num:'sg' },
+    { form:'filio', cases:['dat','abl'], lekt:7, decl:'2m', word:'filius', meaning:'Sohn', num:'sg' },
+    { form:'filium', cases:['akk'], lekt:7, decl:'2m', word:'filius', meaning:'Sohn', num:'sg' },
+    { form:'filii', cases:['nom'], lekt:7, decl:'2m', word:'filius', meaning:'Sohn', num:'pl' },
+    { form:'filiorum', cases:['gen'], lekt:7, decl:'2m', word:'filius', meaning:'Sohn', num:'pl' },
+    { form:'filiis', cases:['dat','abl'], lekt:7, decl:'2m', word:'filius', meaning:'Sohn', num:'pl' },
+    { form:'filios', cases:['akk'], lekt:7, decl:'2m', word:'filius', meaning:'Sohn', num:'pl' },
+    { form:'auxilium', cases:['nom','akk'], lekt:7, decl:'2n', word:'auxilium', meaning:'Hilfe', num:'sg' },
+    { form:'auxilii', cases:['gen'], lekt:7, decl:'2n', word:'auxilium', meaning:'Hilfe', num:'sg' },
+    { form:'auxilio', cases:['dat','abl'], lekt:7, decl:'2n', word:'auxilium', meaning:'Hilfe', num:'sg' },
+    { form:'auxilia', cases:['nom','akk'], lekt:7, decl:'2n', word:'auxilium', meaning:'Hilfe', num:'pl' },
+    { form:'auxiliorum', cases:['gen'], lekt:7, decl:'2n', word:'auxilium', meaning:'Hilfe', num:'pl' },
+    { form:'auxiliis', cases:['dat','abl'], lekt:7, decl:'2n', word:'auxilium', meaning:'Hilfe', num:'pl' },
+    { form:'filia', cases:['nom','abl'], lekt:7, decl:'1', word:'filia', meaning:'Tochter', num:'sg' },
+    { form:'filiae', cases:['gen','dat'], lekt:7, decl:'1', word:'filia', meaning:'Tochter', num:'sg' },
+    { form:'filiam', cases:['akk'], lekt:7, decl:'1', word:'filia', meaning:'Tochter', num:'sg' },
+    { form:'filiae', cases:['nom'], lekt:7, decl:'1', word:'filia', meaning:'Tochter', num:'pl' },
+    { form:'filiarum', cases:['gen'], lekt:7, decl:'1', word:'filia', meaning:'Tochter', num:'pl' },
+    { form:'filiis', cases:['dat','abl'], lekt:7, decl:'1', word:'filia', meaning:'Tochter', num:'pl' },
+    { form:'filias', cases:['akk'], lekt:7, decl:'1', word:'filia', meaning:'Tochter', num:'pl' },
+    { form:'oculus', cases:['nom'], lekt:7, decl:'2m', word:'oculus', meaning:'Auge', num:'sg' },
+    { form:'oculi', cases:['gen'], lekt:7, decl:'2m', word:'oculus', meaning:'Auge', num:'sg' },
+    { form:'oculo', cases:['dat','abl'], lekt:7, decl:'2m', word:'oculus', meaning:'Auge', num:'sg' },
+    { form:'oculum', cases:['akk'], lekt:7, decl:'2m', word:'oculus', meaning:'Auge', num:'sg' },
+    { form:'oculi', cases:['nom'], lekt:7, decl:'2m', word:'oculus', meaning:'Auge', num:'pl' },
+    { form:'oculorum', cases:['gen'], lekt:7, decl:'2m', word:'oculus', meaning:'Auge', num:'pl' },
+    { form:'oculis', cases:['dat','abl'], lekt:7, decl:'2m', word:'oculus', meaning:'Auge', num:'pl' },
+    { form:'oculos', cases:['akk'], lekt:7, decl:'2m', word:'oculus', meaning:'Auge', num:'pl' },
+    { form:'pater', cases:['nom'], lekt:7, decl:'3', word:'pater', meaning:'Vater', num:'sg' },
+    { form:'patris', cases:['gen'], lekt:7, decl:'3', word:'pater', meaning:'Vater', num:'sg' },
+    { form:'patri', cases:['dat'], lekt:7, decl:'3', word:'pater', meaning:'Vater', num:'sg' },
+    { form:'patrem', cases:['akk'], lekt:7, decl:'3', word:'pater', meaning:'Vater', num:'sg' },
+    { form:'patre', cases:['abl'], lekt:7, decl:'3', word:'pater', meaning:'Vater', num:'sg' },
+    { form:'patres', cases:['nom','akk'], lekt:7, decl:'3', word:'pater', meaning:'Vater', num:'pl' },
+    { form:'patrum', cases:['gen'], lekt:7, decl:'3', word:'pater', meaning:'Vater', num:'pl' },
+    { form:'patribus', cases:['dat','abl'], lekt:7, decl:'3', word:'pater', meaning:'Vater', num:'pl' },
+    { form:'libertus', cases:['nom'], lekt:8, decl:'2m', word:'libertus', meaning:'Freigelassener', num:'sg' },
+    { form:'liberti', cases:['gen'], lekt:8, decl:'2m', word:'libertus', meaning:'Freigelassener', num:'sg' },
+    { form:'liberto', cases:['dat','abl'], lekt:8, decl:'2m', word:'libertus', meaning:'Freigelassener', num:'sg' },
+    { form:'libertum', cases:['akk'], lekt:8, decl:'2m', word:'libertus', meaning:'Freigelassener', num:'sg' },
+    { form:'liberti', cases:['nom'], lekt:8, decl:'2m', word:'libertus', meaning:'Freigelassener', num:'pl' },
+    { form:'libertorum', cases:['gen'], lekt:8, decl:'2m', word:'libertus', meaning:'Freigelassener', num:'pl' },
+    { form:'libertis', cases:['dat','abl'], lekt:8, decl:'2m', word:'libertus', meaning:'Freigelassener', num:'pl' },
+    { form:'libertos', cases:['akk'], lekt:8, decl:'2m', word:'libertus', meaning:'Freigelassener', num:'pl' },
+    { form:'negotium', cases:['nom','akk'], lekt:8, decl:'2n', word:'negotium', meaning:'Aufgabe, Geschäft', num:'sg' },
+    { form:'negotii', cases:['gen'], lekt:8, decl:'2n', word:'negotium', meaning:'Aufgabe, Geschäft', num:'sg' },
+    { form:'negotio', cases:['dat','abl'], lekt:8, decl:'2n', word:'negotium', meaning:'Aufgabe, Geschäft', num:'sg' },
+    { form:'negotia', cases:['nom','akk'], lekt:8, decl:'2n', word:'negotium', meaning:'Aufgabe, Geschäft', num:'pl' },
+    { form:'negotiorum', cases:['gen'], lekt:8, decl:'2n', word:'negotium', meaning:'Aufgabe, Geschäft', num:'pl' },
+    { form:'negotiis', cases:['dat','abl'], lekt:8, decl:'2n', word:'negotium', meaning:'Aufgabe, Geschäft', num:'pl' },
+    { form:'vox', cases:['nom'], lekt:8, decl:'3', word:'vox', meaning:'Äußerung, Stimme', num:'sg' },
+    { form:'vocis', cases:['gen'], lekt:8, decl:'3', word:'vox', meaning:'Äußerung, Stimme', num:'sg' },
+    { form:'voci', cases:['dat'], lekt:8, decl:'3', word:'vox', meaning:'Äußerung, Stimme', num:'sg' },
+    { form:'vocem', cases:['akk'], lekt:8, decl:'3', word:'vox', meaning:'Äußerung, Stimme', num:'sg' },
+    { form:'voce', cases:['abl'], lekt:8, decl:'3', word:'vox', meaning:'Äußerung, Stimme', num:'sg' },
+    { form:'voces', cases:['nom','akk'], lekt:8, decl:'3', word:'vox', meaning:'Äußerung, Stimme', num:'pl' },
+    { form:'vocum', cases:['gen'], lekt:8, decl:'3', word:'vox', meaning:'Äußerung, Stimme', num:'pl' },
+    { form:'vocibus', cases:['dat','abl'], lekt:8, decl:'3', word:'vox', meaning:'Äußerung, Stimme', num:'pl' },
+    { form:'patronus', cases:['nom'], lekt:8, decl:'2m', word:'patronus', meaning:'Patron, Schutzherr', num:'sg' },
+    { form:'patroni', cases:['gen'], lekt:8, decl:'2m', word:'patronus', meaning:'Patron, Schutzherr', num:'sg' },
+    { form:'patrono', cases:['dat','abl'], lekt:8, decl:'2m', word:'patronus', meaning:'Patron, Schutzherr', num:'sg' },
+    { form:'patronum', cases:['akk'], lekt:8, decl:'2m', word:'patronus', meaning:'Patron, Schutzherr', num:'sg' },
+    { form:'patroni', cases:['nom'], lekt:8, decl:'2m', word:'patronus', meaning:'Patron, Schutzherr', num:'pl' },
+    { form:'patronorum', cases:['gen'], lekt:8, decl:'2m', word:'patronus', meaning:'Patron, Schutzherr', num:'pl' },
+    { form:'patronis', cases:['dat','abl'], lekt:8, decl:'2m', word:'patronus', meaning:'Patron, Schutzherr', num:'pl' },
+    { form:'patronos', cases:['akk'], lekt:8, decl:'2m', word:'patronus', meaning:'Patron, Schutzherr', num:'pl' },
+    { form:'via', cases:['nom','abl'], lekt:8, decl:'1', word:'via', meaning:'Straße, Weg', num:'sg' },
+    { form:'viae', cases:['gen','dat'], lekt:8, decl:'1', word:'via', meaning:'Straße, Weg', num:'sg' },
+    { form:'viam', cases:['akk'], lekt:8, decl:'1', word:'via', meaning:'Straße, Weg', num:'sg' },
+    { form:'viae', cases:['nom'], lekt:8, decl:'1', word:'via', meaning:'Straße, Weg', num:'pl' },
+    { form:'viarum', cases:['gen'], lekt:8, decl:'1', word:'via', meaning:'Straße, Weg', num:'pl' },
+    { form:'viis', cases:['dat','abl'], lekt:8, decl:'1', word:'via', meaning:'Straße, Weg', num:'pl' },
+    { form:'vias', cases:['akk'], lekt:8, decl:'1', word:'via', meaning:'Straße, Weg', num:'pl' },
+    { form:'mons', cases:['nom'], lekt:8, decl:'3', word:'mons', meaning:'Berg', num:'sg' },
+    { form:'montis', cases:['gen'], lekt:8, decl:'3', word:'mons', meaning:'Berg', num:'sg' },
+    { form:'monti', cases:['dat'], lekt:8, decl:'3', word:'mons', meaning:'Berg', num:'sg' },
+    { form:'montem', cases:['akk'], lekt:8, decl:'3', word:'mons', meaning:'Berg', num:'sg' },
+    { form:'monte', cases:['abl'], lekt:8, decl:'3', word:'mons', meaning:'Berg', num:'sg' },
+    { form:'montes', cases:['nom','akk'], lekt:8, decl:'3', word:'mons', meaning:'Berg', num:'pl' },
+    { form:'montium', cases:['gen'], lekt:8, decl:'3', word:'mons', meaning:'Berg', num:'pl' },
+    { form:'montibus', cases:['dat','abl'], lekt:8, decl:'3', word:'mons', meaning:'Berg', num:'pl' },
+    { form:'propinquus', cases:['nom'], lekt:8, decl:'2m', word:'propinquus', meaning:'Verwandter', num:'sg' },
+    { form:'propinqui', cases:['gen'], lekt:8, decl:'2m', word:'propinquus', meaning:'Verwandter', num:'sg' },
+    { form:'propinquo', cases:['dat','abl'], lekt:8, decl:'2m', word:'propinquus', meaning:'Verwandter', num:'sg' },
+    { form:'propinquum', cases:['akk'], lekt:8, decl:'2m', word:'propinquus', meaning:'Verwandter', num:'sg' },
+    { form:'propinqui', cases:['nom'], lekt:8, decl:'2m', word:'propinquus', meaning:'Verwandter', num:'pl' },
+    { form:'propinquorum', cases:['gen'], lekt:8, decl:'2m', word:'propinquus', meaning:'Verwandter', num:'pl' },
+    { form:'propinquis', cases:['dat','abl'], lekt:8, decl:'2m', word:'propinquus', meaning:'Verwandter', num:'pl' },
+    { form:'propinquos', cases:['akk'], lekt:8, decl:'2m', word:'propinquus', meaning:'Verwandter', num:'pl' },
+    { form:'gens', cases:['nom'], lekt:8, decl:'3', word:'gens', meaning:'Familienverband, Stamm', num:'sg' },
+    { form:'gentis', cases:['gen'], lekt:8, decl:'3', word:'gens', meaning:'Familienverband, Stamm', num:'sg' },
+    { form:'genti', cases:['dat'], lekt:8, decl:'3', word:'gens', meaning:'Familienverband, Stamm', num:'sg' },
+    { form:'gentem', cases:['akk'], lekt:8, decl:'3', word:'gens', meaning:'Familienverband, Stamm', num:'sg' },
+    { form:'gente', cases:['abl'], lekt:8, decl:'3', word:'gens', meaning:'Familienverband, Stamm', num:'sg' },
+    { form:'gentes', cases:['nom','akk'], lekt:8, decl:'3', word:'gens', meaning:'Familienverband, Stamm', num:'pl' },
+    { form:'gentium', cases:['gen'], lekt:8, decl:'3', word:'gens', meaning:'Familienverband, Stamm', num:'pl' },
+    { form:'gentibus', cases:['dat','abl'], lekt:8, decl:'3', word:'gens', meaning:'Familienverband, Stamm', num:'pl' },
+    { form:'parens', cases:['nom'], lekt:8, decl:'3', word:'parens', meaning:'Vater, Mutter (Elternteil)', num:'sg' },
+    { form:'parentis', cases:['gen'], lekt:8, decl:'3', word:'parens', meaning:'Vater, Mutter (Elternteil)', num:'sg' },
+    { form:'parenti', cases:['dat'], lekt:8, decl:'3', word:'parens', meaning:'Vater, Mutter (Elternteil)', num:'sg' },
+    { form:'parentem', cases:['akk'], lekt:8, decl:'3', word:'parens', meaning:'Vater, Mutter (Elternteil)', num:'sg' },
+    { form:'parente', cases:['abl'], lekt:8, decl:'3', word:'parens', meaning:'Vater, Mutter (Elternteil)', num:'sg' },
+    { form:'parentes', cases:['nom','akk'], lekt:8, decl:'3', word:'parens', meaning:'Eltern', num:'pl' },
+    { form:'parentum', cases:['gen'], lekt:8, decl:'3', word:'parens', meaning:'Eltern', num:'pl' },
+    { form:'parentibus', cases:['dat','abl'], lekt:8, decl:'3', word:'parens', meaning:'Eltern', num:'pl' },
+    { form:'soror', cases:['nom'], lekt:8, decl:'3', word:'soror', meaning:'Schwester', num:'sg' },
+    { form:'sororis', cases:['gen'], lekt:8, decl:'3', word:'soror', meaning:'Schwester', num:'sg' },
+    { form:'sorori', cases:['dat'], lekt:8, decl:'3', word:'soror', meaning:'Schwester', num:'sg' },
+    { form:'sororem', cases:['akk'], lekt:8, decl:'3', word:'soror', meaning:'Schwester', num:'sg' },
+    { form:'sorore', cases:['abl'], lekt:8, decl:'3', word:'soror', meaning:'Schwester', num:'sg' },
+    { form:'sorores', cases:['nom','akk'], lekt:8, decl:'3', word:'soror', meaning:'Schwester', num:'pl' },
+    { form:'sororum', cases:['gen'], lekt:8, decl:'3', word:'soror', meaning:'Schwester', num:'pl' },
+    { form:'sororibus', cases:['dat','abl'], lekt:8, decl:'3', word:'soror', meaning:'Schwester', num:'pl' },
+    { form:'ara', cases:['nom','abl'], lekt:8, decl:'1', word:'ara', meaning:'Altar', num:'sg' },
+    { form:'arae', cases:['gen','dat'], lekt:8, decl:'1', word:'ara', meaning:'Altar', num:'sg' },
+    { form:'aram', cases:['akk'], lekt:8, decl:'1', word:'ara', meaning:'Altar', num:'sg' },
+    { form:'arae', cases:['nom'], lekt:8, decl:'1', word:'ara', meaning:'Altar', num:'pl' },
+    { form:'ararum', cases:['gen'], lekt:8, decl:'1', word:'ara', meaning:'Altar', num:'pl' },
+    { form:'aris', cases:['dat','abl'], lekt:8, decl:'1', word:'ara', meaning:'Altar', num:'pl' },
+    { form:'aras', cases:['akk'], lekt:8, decl:'1', word:'ara', meaning:'Altar', num:'pl' },
+    { form:'gaudium', cases:['nom','akk'], lekt:8, decl:'2n', word:'gaudium', meaning:'Freude', num:'sg' },
+    { form:'gaudii', cases:['gen'], lekt:8, decl:'2n', word:'gaudium', meaning:'Freude', num:'sg' },
+    { form:'gaudio', cases:['dat','abl'], lekt:8, decl:'2n', word:'gaudium', meaning:'Freude', num:'sg' },
+    { form:'gaudia', cases:['nom','akk'], lekt:8, decl:'2n', word:'gaudium', meaning:'Freude', num:'pl' },
+    { form:'gaudiorum', cases:['gen'], lekt:8, decl:'2n', word:'gaudium', meaning:'Freude', num:'pl' },
+    { form:'gaudiis', cases:['dat','abl'], lekt:8, decl:'2n', word:'gaudium', meaning:'Freude', num:'pl' },
+    { form:'dea', cases:['nom','abl'], lekt:8, decl:'1', word:'dea', meaning:'Göttin', num:'sg' },
+    { form:'deae', cases:['gen','dat'], lekt:8, decl:'1', word:'dea', meaning:'Göttin', num:'sg' },
+    { form:'deam', cases:['akk'], lekt:8, decl:'1', word:'dea', meaning:'Göttin', num:'sg' },
+    { form:'deae', cases:['nom'], lekt:8, decl:'1', word:'dea', meaning:'Göttin', num:'pl' },
+    { form:'dearum', cases:['gen'], lekt:8, decl:'1', word:'dea', meaning:'Göttin', num:'pl' },
+    { form:'deis', cases:['dat','abl'], lekt:8, decl:'1', word:'dea', meaning:'Göttin', num:'pl' },
+    { form:'deas', cases:['akk'], lekt:8, decl:'1', word:'dea', meaning:'Göttin', num:'pl' },
+    { form:'salus', cases:['nom'], lekt:8, decl:'3', word:'salus', meaning:'Gesundheit, Rettung', num:'sg' },
+    { form:'salutis', cases:['gen'], lekt:8, decl:'3', word:'salus', meaning:'Gesundheit, Rettung', num:'sg' },
+    { form:'saluti', cases:['dat'], lekt:8, decl:'3', word:'salus', meaning:'Gesundheit, Rettung', num:'sg' },
+    { form:'salutem', cases:['akk'], lekt:8, decl:'3', word:'salus', meaning:'Gesundheit, Rettung', num:'sg' },
+    { form:'salute', cases:['abl'], lekt:8, decl:'3', word:'salus', meaning:'Gesundheit, Rettung', num:'sg' },
+    { form:'salutes', cases:['nom','akk'], lekt:8, decl:'3', word:'salus', meaning:'Gesundheit, Rettung', num:'pl' },
+    { form:'salutum', cases:['gen'], lekt:8, decl:'3', word:'salus', meaning:'Gesundheit, Rettung', num:'pl' },
+    { form:'salutibus', cases:['dat','abl'], lekt:8, decl:'3', word:'salus', meaning:'Gesundheit, Rettung', num:'pl' },
+    { form:'pax', cases:['nom'], lekt:8, decl:'3', word:'pax', meaning:'Friede', num:'sg' },
+    { form:'pacis', cases:['gen'], lekt:8, decl:'3', word:'pax', meaning:'Friede', num:'sg' },
+    { form:'paci', cases:['dat'], lekt:8, decl:'3', word:'pax', meaning:'Friede', num:'sg' },
+    { form:'pacem', cases:['akk'], lekt:8, decl:'3', word:'pax', meaning:'Friede', num:'sg' },
+    { form:'pace', cases:['abl'], lekt:8, decl:'3', word:'pax', meaning:'Friede', num:'sg' },
+    { form:'paces', cases:['nom','akk'], lekt:8, decl:'3', word:'pax', meaning:'Friede', num:'pl' },
+    { form:'pacum', cases:['gen'], lekt:8, decl:'3', word:'pax', meaning:'Friede', num:'pl' },
+    { form:'pacibus', cases:['dat','abl'], lekt:8, decl:'3', word:'pax', meaning:'Friede', num:'pl' },
+    { form:'agmen', cases:['nom','akk'], lekt:8, decl:'3', word:'agmen', meaning:'Heereszug, Schar', num:'sg' },
+    { form:'agminis', cases:['gen'], lekt:8, decl:'3', word:'agmen', meaning:'Heereszug, Schar', num:'sg' },
+    { form:'agmini', cases:['dat'], lekt:8, decl:'3', word:'agmen', meaning:'Heereszug, Schar', num:'sg' },
+    { form:'agmine', cases:['abl'], lekt:8, decl:'3', word:'agmen', meaning:'Heereszug, Schar', num:'sg' },
+    { form:'agmina', cases:['nom','akk'], lekt:8, decl:'3', word:'agmen', meaning:'Heereszug, Schar', num:'pl' },
+    { form:'agminum', cases:['gen'], lekt:8, decl:'3', word:'agmen', meaning:'Heereszug, Schar', num:'pl' },
+    { form:'agminibus', cases:['dat','abl'], lekt:8, decl:'3', word:'agmen', meaning:'Heereszug, Schar', num:'pl' },
+    { form:'hospes', cases:['nom'], lekt:9, decl:'3', word:'hospes', meaning:'Fremder, Gast', num:'sg' },
+    { form:'hospitis', cases:['gen'], lekt:9, decl:'3', word:'hospes', meaning:'Fremder, Gast', num:'sg' },
+    { form:'hospiti', cases:['dat'], lekt:9, decl:'3', word:'hospes', meaning:'Fremder, Gast', num:'sg' },
+    { form:'hospitem', cases:['akk'], lekt:9, decl:'3', word:'hospes', meaning:'Fremder, Gast', num:'sg' },
+    { form:'hospite', cases:['abl'], lekt:9, decl:'3', word:'hospes', meaning:'Fremder, Gast', num:'sg' },
+    { form:'hospites', cases:['nom','akk'], lekt:9, decl:'3', word:'hospes', meaning:'Fremder, Gast', num:'pl' },
+    { form:'hospitum', cases:['gen'], lekt:9, decl:'3', word:'hospes', meaning:'Fremder, Gast', num:'pl' },
+    { form:'hospitibus', cases:['dat','abl'], lekt:9, decl:'3', word:'hospes', meaning:'Fremder, Gast', num:'pl' },
+    { form:'dominus', cases:['nom'], lekt:9, decl:'2m', word:'dominus', meaning:'Herr', num:'sg' },
+    { form:'domini', cases:['gen'], lekt:9, decl:'2m', word:'dominus', meaning:'Herr', num:'sg' },
+    { form:'domino', cases:['dat','abl'], lekt:9, decl:'2m', word:'dominus', meaning:'Herr', num:'sg' },
+    { form:'dominum', cases:['akk'], lekt:9, decl:'2m', word:'dominus', meaning:'Herr', num:'sg' },
+    { form:'domini', cases:['nom'], lekt:9, decl:'2m', word:'dominus', meaning:'Herr', num:'pl' },
+    { form:'dominorum', cases:['gen'], lekt:9, decl:'2m', word:'dominus', meaning:'Herr', num:'pl' },
+    { form:'dominis', cases:['dat','abl'], lekt:9, decl:'2m', word:'dominus', meaning:'Herr', num:'pl' },
+    { form:'dominos', cases:['akk'], lekt:9, decl:'2m', word:'dominus', meaning:'Herr', num:'pl' },
+    { form:'aqua', cases:['nom','abl'], lekt:9, decl:'1', word:'aqua', meaning:'Wasser', num:'sg' },
+    { form:'aquae', cases:['gen','dat'], lekt:9, decl:'1', word:'aqua', meaning:'Wasser', num:'sg' },
+    { form:'aquam', cases:['akk'], lekt:9, decl:'1', word:'aqua', meaning:'Wasser', num:'sg' },
+    { form:'aquae', cases:['nom'], lekt:9, decl:'1', word:'aqua', meaning:'Wasser', num:'pl' },
+    { form:'aquarum', cases:['gen'], lekt:9, decl:'1', word:'aqua', meaning:'Wasser', num:'pl' },
+    { form:'aquis', cases:['dat','abl'], lekt:9, decl:'1', word:'aqua', meaning:'Wasser', num:'pl' },
+    { form:'aquas', cases:['akk'], lekt:9, decl:'1', word:'aqua', meaning:'Wasser', num:'pl' },
+    { form:'cibus', cases:['nom'], lekt:9, decl:'2m', word:'cibus', meaning:'Nahrung, Speise', num:'sg' },
+    { form:'cibi', cases:['gen'], lekt:9, decl:'2m', word:'cibus', meaning:'Nahrung, Speise', num:'sg' },
+    { form:'cibo', cases:['dat','abl'], lekt:9, decl:'2m', word:'cibus', meaning:'Nahrung, Speise', num:'sg' },
+    { form:'cibum', cases:['akk'], lekt:9, decl:'2m', word:'cibus', meaning:'Nahrung, Speise', num:'sg' },
+    { form:'cibi', cases:['nom'], lekt:9, decl:'2m', word:'cibus', meaning:'Nahrung, Speise', num:'pl' },
+    { form:'ciborum', cases:['gen'], lekt:9, decl:'2m', word:'cibus', meaning:'Nahrung, Speise', num:'pl' },
+    { form:'cibis', cases:['dat','abl'], lekt:9, decl:'2m', word:'cibus', meaning:'Nahrung, Speise', num:'pl' },
+    { form:'cibos', cases:['akk'], lekt:9, decl:'2m', word:'cibus', meaning:'Nahrung, Speise', num:'pl' },
+    { form:'oratio', cases:['nom'], lekt:9, decl:'3', word:'oratio', meaning:'Rede', num:'sg' },
+    { form:'orationis', cases:['gen'], lekt:9, decl:'3', word:'oratio', meaning:'Rede', num:'sg' },
+    { form:'orationi', cases:['dat'], lekt:9, decl:'3', word:'oratio', meaning:'Rede', num:'sg' },
+    { form:'orationem', cases:['akk'], lekt:9, decl:'3', word:'oratio', meaning:'Rede', num:'sg' },
+    { form:'oratione', cases:['abl'], lekt:9, decl:'3', word:'oratio', meaning:'Rede', num:'sg' },
+    { form:'orationes', cases:['nom','akk'], lekt:9, decl:'3', word:'oratio', meaning:'Rede', num:'pl' },
+    { form:'orationum', cases:['gen'], lekt:9, decl:'3', word:'oratio', meaning:'Rede', num:'pl' },
+    { form:'orationibus', cases:['dat','abl'], lekt:9, decl:'3', word:'oratio', meaning:'Rede', num:'pl' },
+    { form:'gratia', cases:['nom','abl'], lekt:9, decl:'1', word:'gratia', meaning:'Ansehen, Dank', num:'sg' },
+    { form:'gratiae', cases:['gen','dat'], lekt:9, decl:'1', word:'gratia', meaning:'Ansehen, Dank', num:'sg' },
+    { form:'gratiam', cases:['akk'], lekt:9, decl:'1', word:'gratia', meaning:'Ansehen, Dank', num:'sg' },
+    { form:'gratiae', cases:['nom'], lekt:9, decl:'1', word:'gratia', meaning:'Ansehen, Dank', num:'pl' },
+    { form:'gratiarum', cases:['gen'], lekt:9, decl:'1', word:'gratia', meaning:'Ansehen, Dank', num:'pl' },
+    { form:'gratiis', cases:['dat','abl'], lekt:9, decl:'1', word:'gratia', meaning:'Ansehen, Dank', num:'pl' },
+    { form:'gratias', cases:['akk'], lekt:9, decl:'1', word:'gratia', meaning:'Ansehen, Dank', num:'pl' },
+    { form:'mos', cases:['nom'], lekt:9, decl:'3', word:'mos', meaning:'Sitte, Brauch', num:'sg' },
+    { form:'moris', cases:['gen'], lekt:9, decl:'3', word:'mos', meaning:'Sitte, Brauch', num:'sg' },
+    { form:'mori', cases:['dat'], lekt:9, decl:'3', word:'mos', meaning:'Sitte, Brauch', num:'sg' },
+    { form:'morem', cases:['akk'], lekt:9, decl:'3', word:'mos', meaning:'Sitte, Brauch', num:'sg' },
+    { form:'more', cases:['abl'], lekt:9, decl:'3', word:'mos', meaning:'Sitte, Brauch', num:'sg' },
+    { form:'mores', cases:['nom','akk'], lekt:9, decl:'3', word:'mos', meaning:'Sitte, Brauch', num:'pl' },
+    { form:'morum', cases:['gen'], lekt:9, decl:'3', word:'mos', meaning:'Sitte, Brauch', num:'pl' },
+    { form:'moribus', cases:['dat','abl'], lekt:9, decl:'3', word:'mos', meaning:'Sitte, Brauch', num:'pl' },
+    { form:'munus', cases:['nom','akk'], lekt:9, decl:'3', word:'munus', meaning:'Aufgabe, Geschenk', num:'sg' },
+    { form:'muneris', cases:['gen'], lekt:9, decl:'3', word:'munus', meaning:'Aufgabe, Geschenk', num:'sg' },
+    { form:'muneri', cases:['dat'], lekt:9, decl:'3', word:'munus', meaning:'Aufgabe, Geschenk', num:'sg' },
+    { form:'munere', cases:['abl'], lekt:9, decl:'3', word:'munus', meaning:'Aufgabe, Geschenk', num:'sg' },
+    { form:'munera', cases:['nom','akk'], lekt:9, decl:'3', word:'munus', meaning:'Aufgabe, Geschenk', num:'pl' },
+    { form:'munerum', cases:['gen'], lekt:9, decl:'3', word:'munus', meaning:'Aufgabe, Geschenk', num:'pl' },
+    { form:'muneribus', cases:['dat','abl'], lekt:9, decl:'3', word:'munus', meaning:'Aufgabe, Geschenk', num:'pl' },
+    { form:'iter', cases:['nom','akk'], lekt:9, decl:'3', word:'iter', meaning:'Reise, Weg, Marsch', num:'sg' },
+    { form:'itineris', cases:['gen'], lekt:9, decl:'3', word:'iter', meaning:'Reise, Weg, Marsch', num:'sg' },
+    { form:'itineri', cases:['dat'], lekt:9, decl:'3', word:'iter', meaning:'Reise, Weg, Marsch', num:'sg' },
+    { form:'itinere', cases:['abl'], lekt:9, decl:'3', word:'iter', meaning:'Reise, Weg, Marsch', num:'sg' },
+    { form:'itinera', cases:['nom','akk'], lekt:9, decl:'3', word:'iter', meaning:'Reise, Weg, Marsch', num:'pl' },
+    { form:'itinerum', cases:['gen'], lekt:9, decl:'3', word:'iter', meaning:'Reise, Weg, Marsch', num:'pl' },
+    { form:'itineribus', cases:['dat','abl'], lekt:9, decl:'3', word:'iter', meaning:'Reise, Weg, Marsch', num:'pl' },
+    { form:'maiores', cases:['nom','akk'], lekt:9, decl:'3', word:'maiores', meaning:'Vorfahren', num:'pl' },
+    { form:'maiorum', cases:['gen'], lekt:9, decl:'3', word:'maiores', meaning:'Vorfahren', num:'pl' },
+    { form:'maioribus', cases:['dat','abl'], lekt:9, decl:'3', word:'maiores', meaning:'Vorfahren', num:'pl' }
+  ];
+
+  /* ---------------- SCHWIERIGKEITSGRADE ---------------- */
+  // fallSpeed/spawnDelay = Startwerte; maxFallSpeed/minSpawnDelay = Obergrenzen
+  // der Steigerung im Spielverlauf; basePoints = Punkte pro richtigem Fang
+  // (vor Serien-Bonus) - bewusst nur leicht unterschiedlich zwischen den Stufen.
+  // sliceSpawnDelay = Abstand zwischen neuen Tafeln; targetInterval = Takt des
+  // Zielwechsels. slicePeakFraction = wie hoch eine Tafel relativ zur Spielfeld-
+  // höhe fliegt (0.8 = 80% der Höhe); sliceAirtimeMin/Max = wie lange sie
+  // (in Sekunden) insgesamt in der Luft ist, bevor sie zurückfällt - daraus
+  // werden Anfangsgeschwindigkeit und Schwerkraft pro Tafel berechnet, sodass
+  // die Flugbahn auf jedem Bildschirm gleich hoch/lang wirkt.
+  const DIFFICULTIES = {
+    leicht: { fallSpeed: 32,  spawnDelay: 3000, maxFallSpeed: 100, minSpawnDelay: 1500, basePoints: 8,
+               sliceSpawnDelay: 2300, slicePeakFraction: 0.82, sliceAirtimeMin: 5.8, sliceAirtimeMax: 6.5, targetInterval: 10000,
+               raceQuestionTime: 7500, raceStepBase: 15, raceDuration: 60000, startLives: 3 },
+    mittel: { fallSpeed: 42,  spawnDelay: 2600, maxFallSpeed: 130, minSpawnDelay: 1150, basePoints: 10,
+               sliceSpawnDelay: 1850, slicePeakFraction: 0.75, sliceAirtimeMin: 4.6, sliceAirtimeMax: 5.3, targetInterval: 8000,
+               raceQuestionTime: 4500, raceStepBase: 20, raceDuration: 60000, startLives: 3 },
+    schwer: { fallSpeed: 54,  spawnDelay: 2200, maxFallSpeed: 165, minSpawnDelay: 900,  basePoints: 12,
+               sliceSpawnDelay: 1450, slicePeakFraction: 0.65, sliceAirtimeMin: 3.6, sliceAirtimeMax: 4.2, targetInterval: 6500,
+               raceQuestionTime: 2800, raceStepBase: 25, raceDuration: 60000, startLives: 3 },
+    uebung: { fallSpeed: 24,  spawnDelay: 3800, maxFallSpeed: 24,  minSpawnDelay: 3800, basePoints: 8,
+               sliceSpawnDelay: 2800, slicePeakFraction: 0.85, sliceAirtimeMin: 7.0, sliceAirtimeMax: 7.5, targetInterval: 16000,
+               raceQuestionTime: 15000, raceStepBase: 15, raceDuration: 999999999, startLives: 99 }
+  };
+
+  /* ---------------- STATE ---------------- */
+  let gameMode = 'faenger';
+  let lektMin = 1, lektMax = 9;
+  let activeDecls = new Set(['1','2m','2n','3']);
+  let activeNum = 'sg';
+  let difficulty = 'mittel';
+  let currentDiff = DIFFICULTIES.mittel;
+  let score = 0, lives = 3, streak = 0;
+  let selectedIndex = 2; // start on Dativ (middle urn)
+  let running = false;
+  let fallSpeed = 60;      // px/sec
+  let spawnDelay = 2200;   // ms
+  let lastFrame = 0;
+  let tablets = [];
+  let spawnTimer = null;
+  let tabletSeq = 0;
+
+  // Slice-Modus
+  let sliceRunning = false;
+  let sliceTablets = [];
+  let sliceSpawnTimer = null;
+  let sliceLastFrame = 0;
+  let sliceRafId = null;
+  let sliceTabletSeq = 0;
+  let targetCaseId = 'nom';
+  let targetTimer = null;
+  let sliceCtx = null;
+  let isSlicing = false;
+  let lastPointerPos = null;
+  let trailPoints = [];
+  let guaranteedSpawnTimers = [];
+
+  // Wagenrennen-Modus
+  let raceRunning = false;
+  let raceDistance = 0;
+  let raceIntervalTimer = null;
+  let raceTimeLeft = 60000;
+  let raceQuestionTimer = null;
+  let raceCurrentWord = null;
+  let raceAnswering = false;
+  let raceLastLap = 1;
+  let raceEndReason = 'time'; // 'time' | 'lives' - steuert den Text auf dem Abschlussbildschirm
+
+  // Fehler-Auswertung & manuelles Beenden (modusübergreifend)
+  let sessionMistakes = []; // { form, meaning, cases } - alle Fehler der aktuellen Runde
+  let manualQuit = false;
+  const RACE_LAP_LENGTH = 100; // Distanz-Einheiten pro "Runde" (intern, nicht in Metern)
+  const RACE_RIG_MIN = 6;      // Position (in %) des Gespanns bei Rundenbeginn
+  const RACE_RIG_MAX = 68;     // Position (in %) des Gespanns kurz vor Rundenende
+
+  const els = {};
+  function q(id){ return document.getElementById(id); }
+
+  /* ---------------- BUILD STATIC UI ---------------- */
+  function buildUrns(){
+    buildUrnsInto('urn-row', (i)=> selectUrn(i));
+    buildUrnsInto('urn-row-rennen', (i)=> answerRace(CASES[i].id));
+    updateCartPosition();
+  }
+
+  function buildUrnsInto(containerId, onClick){
+    const row = q(containerId);
+    row.innerHTML = '';
+    CASES.forEach((c, i)=>{
+      const btn = document.createElement('button');
+      btn.className = 'urn';
+      btn.type = 'button';
+      btn.dataset.index = i;
+      btn.style.setProperty('--case-color', c.color);
+      btn.setAttribute('aria-label', 'Amphore ' + c.name + ' wählen');
+      btn.innerHTML =
+        '<svg class="amphora-svg" viewBox="0 0 100 150" fill="currentColor">' +
+          '<path d="M35,8 Q35,0 50,0 Q65,0 65,8 L68,24 Q95,34 90,68 Q90,112 50,148 Q10,112 10,68 Q5,34 32,24 Z"/>' +
+          '<path d="M30,24 Q8,34 14,56" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"/>' +
+          '<path d="M70,24 Q92,34 86,56" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"/>' +
+        '</svg>' +
+        '<span class="urn-name urn-name-full">' + c.name + '</span>' +
+        '<span class="urn-name urn-name-short">' + c.short + '</span>';
+      btn.addEventListener('click', ()=> onClick(i));
+      row.appendChild(btn);
+    });
+  }
+
+  function buildLegend(){
+    const legend = q('legend');
+    legend.innerHTML = CASES.map(c =>
+      '<span class="legend-chip"><span class="legend-dot" style="background:' + c.color.replace('var(--','').replace(')','') === '' ? '' : '' + ';"></span></span>'
+    ).join('');
+    // simpler direct build (avoids CSS var parsing above)
+    legend.innerHTML = CASES.map(c => {
+      const hex = CASE_COLOR[c.id];
+      return '<span class="legend-chip"><span class="legend-dot" style="background:' + hex + ';"></span>' + c.name + '</span>';
+    }).join('');
+  }
+
+  function buildLives(){
+    const box = q('lives');
+    box.innerHTML = '';
+    for(let i=0;i<3;i++){
+      const d = document.createElement('div');
+      d.className = 'life-tablet';
+      box.appendChild(d);
+    }
+  }
+
+  function updateLives(){
+    const nodes = q('lives').children;
+    for(let i=0;i<nodes.length;i++){
+      nodes[i].classList.toggle('lost', i >= lives);
+    }
+  }
+
+  /* ---------------- CART / SELECTION ---------------- */
+  function selectUrn(i){
+    selectedIndex = Math.max(0, Math.min(CASES.length-1, i));
+    const urns = q('urn-row').children;
+    for(let j=0;j<urns.length;j++){
+      urns[j].classList.toggle('selected', j===selectedIndex);
+    }
+    updateCartPosition();
+  }
+
+  function updateCartPosition(){
+    const pct = (selectedIndex + 0.5) * (100/CASES.length);
+    q('cart').style.left = pct + '%';
+  }
+
+  /* ---------------- MODUS SELECT (start screen) ---------------- */
+  function buildModeSelect(){
+    const wrap = q('mode-select');
+    wrap.querySelectorAll('.mode-card').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        wrap.querySelectorAll('.mode-card').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        gameMode = btn.dataset.mode;
+        updateModeHint();
+      });
+    });
+    updateModeHint();
+  }
+
+  function updateModeHint(){
+    // Bestleistung auf allen drei Modus-Karten anzeigen, passend zum gewählten Schwierigkeitsgrad.
+    const faengerBest = getScoreBest('faenger', difficulty);
+    const sliceBest = getScoreBest('slice', difficulty);
+    const raceBest = getRaceBest(difficulty);
+
+    const faengerNote = q('mode-select').querySelector('.mode-card[data-mode="faenger"] .mode-card-note');
+    const sliceNote = q('mode-select').querySelector('.mode-card[data-mode="slice"] .mode-card-note');
+    const raceNote = q('mode-select').querySelector('.mode-card[data-mode="rennen"] .mode-card-note');
+
+    if(faengerNote) faengerNote.textContent = faengerBest > 0 ? 'Bestleistung: ' + faengerBest + ' Punkte' : '';
+    if(sliceNote) sliceNote.textContent = sliceBest > 0 ? 'Bestleistung: ' + sliceBest + ' Punkte' : '';
+    if(raceNote) raceNote.textContent = raceBest > 0 ? 'Bestleistung: ' + raceBest + (raceBest === 1 ? ' Runde' : ' Runden') : '';
+
+    updateSettingsSummary();
+  }
+
+  /* ---------------- GROUP / LEKTION / NUMERUS SELECT (start screen) ---------------- */
+  function buildGroupSelect(){
+    const wrap = q('group-select');
+    wrap.querySelectorAll('.group-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const decl = btn.dataset.decl;
+        if(activeDecls.has(decl)){
+          if(activeDecls.size > 1){ activeDecls.delete(decl); btn.classList.remove('active'); }
+          // (mindestens eine Deklination muss aktiv bleiben)
+        } else {
+          activeDecls.add(decl);
+          btn.classList.add('active');
+        }
+        updateSettingsSummary();
+      });
+    });
+  }
+
+  function buildNumSelect(){
+    const wrap = q('num-select');
+    wrap.querySelectorAll('.group-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        wrap.querySelectorAll('.group-btn').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        activeNum = btn.dataset.num;
+        updateNumHint();
+        updateSettingsSummary();
+      });
+    });
+    updateNumHint();
+  }
+
+  function updateNumHint(){
+    const hint = q('num-hint');
+    if(activeNum === 'mixed'){
+      hint.textContent = 'Achtung: Manche Formen sind mehrdeutig (z. B. „dominae“ = Genitiv/Dativ Singular ODER Nominativ Plural) – alle richtigen Lesarten zählen.';
+    } else {
+      hint.textContent = '';
+    }
+  }
+
+  function buildDifficultySelect(){
+    const wrap = q('diff-select');
+    wrap.querySelectorAll('.group-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        wrap.querySelectorAll('.group-btn').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        difficulty = btn.dataset.diff;
+        updateModeHint();
+      });
+    });
+  }
+
+  /* ---------------- BESTLEISTUNG (Wagenrennen, localStorage) ---------------- */
+  function getRaceBest(diff){
+    try{
+      const raw = localStorage.getItem('casus_race_best_laps_' + diff);
+      return raw ? parseInt(raw, 10) : 0;
+    } catch(e){ return 0; }
+  }
+  function setRaceBest(diff, value){
+    try{ localStorage.setItem('casus_race_best_laps_' + diff, String(value)); } catch(e){ /* ignorieren, z.B. privater Modus */ }
+  }
+  // Bestleistungen fuer Faenger/Slice (Punkte-basiert), analog zum Rennen (Runden-basiert).
+  function getScoreBest(mode, diff){
+    try{
+      const raw = localStorage.getItem('casus_best_' + mode + '_' + diff);
+      return raw ? parseInt(raw, 10) : 0;
+    } catch(e){ return 0; }
+  }
+  function setScoreBest(mode, diff, value){
+    try{ localStorage.setItem('casus_best_' + mode + '_' + diff, String(value)); } catch(e){ /* ignorieren */ }
+  }
+
+  function buildLektionSelect(){
+    const minSel = q('lekt-min');
+    const maxSel = q('lekt-max');
+    for(let i=1;i<=9;i++){
+      minSel.appendChild(new Option('Lektion ' + i, i));
+      maxSel.appendChild(new Option('Lektion ' + i, i));
+    }
+    minSel.value = 1;
+    maxSel.value = 9;
+    minSel.addEventListener('change', ()=>{
+      lektMin = parseInt(minSel.value,10);
+      if(lektMin > lektMax){ maxSel.value = lektMin; lektMax = lektMin; }
+      updateSettingsSummary();
+    });
+    maxSel.addEventListener('change', ()=>{
+      lektMax = parseInt(maxSel.value,10);
+      if(lektMax < lektMin){ minSel.value = lektMax; lektMin = lektMax; }
+      updateSettingsSummary();
+    });
+  }
+
+  const DECL_LABELS = { '1':'a-Dekl.', '2m':'o-Dekl. m.', '2n':'o-Dekl. n.', '3':'kons. Dekl.' };
+  const NUM_LABELS = { sg:'Singular', pl:'Plural', mixed:'Sg./Pl. gemischt' };
+  const DIFF_LABELS = { leicht:'Leicht', mittel:'Mittel', schwer:'Schwer', uebung:'Übung' };
+  function updateSettingsSummary(){
+    const el = q('settings-summary-detail');
+    if(!el) return;
+    const declOrder = ['1','2m','2n','3'];
+    const declText = declOrder.filter(d => activeDecls.has(d)).length === declOrder.length
+      ? 'alle Deklinationen'
+      : declOrder.filter(d => activeDecls.has(d)).map(d => DECL_LABELS[d]).join(', ');
+    el.textContent = '· Lektion ' + lektMin + '–' + lektMax + ' · ' + NUM_LABELS[activeNum] +
+      ' · ' + declText + ' · ' + DIFF_LABELS[difficulty];
+
+    // Warnen (und ggf. den Start blockieren), falls diese Kombination keine
+    // oder nur sehr wenige passende Woerter ergibt - VOR dem Spielstart,
+    // nicht erst waehrenddessen durch einen stillen Sicherheitsnetz-Fallback.
+    const warn = q('pool-warning');
+    const startBtn = q('start-btn');
+    if(!warn) return;
+
+    const base = WORDS.filter(w => w.lekt >= lektMin && w.lekt <= lektMax && activeDecls.has(w.decl));
+    if(base.length === 0){
+      warn.textContent = '⛔ Für Lektion ' + lektMin + '–' + lektMax + ' gibt es mit dieser Deklinationsauswahl keine Wörter. Bitte Lektion oder Deklination anpassen.';
+      if(startBtn){ startBtn.disabled = true; startBtn.classList.add('disabled'); }
+      return;
+    }
+    if(startBtn){ startBtn.disabled = false; startBtn.classList.remove('disabled'); }
+
+    const exact = activeNum === 'mixed' ? base : base.filter(w => w.num === activeNum);
+    if(exact.length === 0){
+      warn.textContent = '⚠ Für diese Kombination gibt es in Lektion ' + lektMin + '–' + lektMax +
+        ' keine passenden Wörter im gewählten Numerus – es werden ersatzweise auch andere Numerus-Formen aus dieser Lektion verwendet.';
+    } else if(exact.length < 5){
+      warn.textContent = '⚠ Nur ' + exact.length + ' passende Wortform(en) für diese Auswahl – der Wortschatz wiederholt sich dadurch häufig.';
+    } else {
+      warn.textContent = '';
+    }
+  }
+
+  function currentWordPool(){
+    const base = WORDS.filter(w =>
+      w.lekt >= lektMin && w.lekt <= lektMax && activeDecls.has(w.decl)
+    );
+
+    if(activeNum !== 'mixed'){
+      const pool = base.filter(w => w.num === activeNum);
+      if(pool.length) return pool;
+      // Kein Treffer fuer den gewaehlten Numerus: Lektion/Deklination bleiben
+      // in jedem Fall verbindlich - hoechstens der Numerus wird gelockert.
+      if(base.length) return base;
+      return WORDS.filter(w => w.num === activeNum); // absoluter Notfall (sollte nie eintreten)
+    }
+
+    // Gemischter Modus: Singular- UND Pluralformen zusammen im Topf.
+    // Formen, die (wortweise) in Singular UND Plural identisch geschrieben werden
+    // (z.B. "dominae" = Gen./Dat. Sg. ODER Nom. Pl.), werden zu einem Eintrag
+    // zusammengefuehrt, dessen Kasus-Menge alle gueltigen Lesarten enthaelt -
+    // beide/alle Antworten zaehlen dann als richtig.
+    const merged = new Map();
+    base.forEach(w=>{
+      const key = w.word + '||' + w.form;
+      if(!merged.has(key)){
+        merged.set(key, {
+          form: w.form, word: w.word, meaning: w.meaning,
+          lekt: w.lekt, decl: w.decl, num: 'mixed',
+          cases: new Set(w.cases)
+        });
+      } else {
+        const existing = merged.get(key);
+        w.cases.forEach(c => existing.cases.add(c));
+      }
+    });
+    const pool = Array.from(merged.values()).map(e => ({ ...e, cases: Array.from(e.cases) }));
+    return pool.length ? pool : base;
+  }
+
+  /* ---------------- GAME FLOW ---------------- */
+  function startGame(){
+    currentDiff = DIFFICULTIES[difficulty];
+    score = 0; lives = currentDiff.startLives; streak = 0;
+    sessionMistakes = [];
+    manualQuit = false;
+
+    q('start-screen').classList.add('hidden');
+    q('gameover-screen').classList.add('hidden');
+    q('game-screen').classList.add('active');
+
+    q('score').textContent = '0';
+    updateLives();
+    q('streak').classList.remove('show');
+
+    const isSlice = gameMode === 'slice';
+    const isRennen = gameMode === 'rennen';
+    q('arena-faenger').classList.toggle('hidden', isSlice || isRennen);
+    q('arena-slice').classList.toggle('hidden', !isSlice);
+    q('arena-rennen').classList.toggle('hidden', !isRennen);
+    q('slice-target-bar').classList.toggle('hidden', !isSlice);
+    q('race-timer-bar').classList.toggle('hidden', !isRennen || difficulty === 'uebung');
+    q('lives-block').classList.toggle('hidden', difficulty === 'uebung');
+    q('score-label').textContent = isRennen ? 'Runde' : 'Punkte';
+
+    if(isSlice){
+      q('target-hint').innerHTML = 'Wische mit gedrückter Maustaste/Finger über passende Tafeln';
+      startSliceGame();
+    } else if(isRennen){
+      q('target-hint').innerHTML = 'Tippe die richtige Amphore an, bevor die Zeit für diese Form abläuft';
+      startRennenGame();
+    } else {
+      q('target-hint').innerHTML = 'Wagen lenken: <kbd>←</kbd> <kbd>→</kbd> oder Amphore anklicken';
+      startFaengerGame();
+    }
+  }
+
+  function endGame(){
+    running = false;
+    sliceRunning = false;
+    raceRunning = false;
+    clearTimeout(spawnTimer);
+    clearTimeout(sliceSpawnTimer);
+    clearTimeout(targetTimer);
+    guaranteedSpawnTimers.forEach(id => clearTimeout(id));
+    guaranteedSpawnTimers = [];
+    clearTimeout(raceQuestionTimer);
+    clearInterval(raceIntervalTimer);
+    if(sliceRafId) cancelAnimationFrame(sliceRafId);
+    q('game-screen').classList.remove('active');
+    q('gameover-screen').classList.remove('hidden');
+
+    if(gameMode === 'rennen'){
+      const completedLaps = Math.floor(raceDistance / RACE_LAP_LENGTH);
+      const partial = Math.round((raceDistance % RACE_LAP_LENGTH) / RACE_LAP_LENGTH * 100);
+      const best = getRaceBest(difficulty);
+      const isNewBest = completedLaps > best;
+      if(isNewBest) setRaceBest(difficulty, completedLaps);
+
+      if(manualQuit){
+        q('gameover-eyebrow').textContent = 'Casus Interruptus';
+        q('gameover-title').textContent = 'Rennen abgebrochen';
+      } else if(raceEndReason === 'lives'){
+        q('gameover-eyebrow').textContent = 'Currus Lapsus';
+        q('gameover-title').textContent = 'Von der Bahn abgekommen!';
+      } else {
+        q('gameover-eyebrow').textContent = 'Tempus Fugit';
+        q('gameover-title').textContent = 'Die Zeit ist um!';
+      }
+
+      q('final-score').textContent = completedLaps;
+      const partialNote = partial > 0 ? ' (+' + partial + '% der nächsten Runde)' : '';
+      const bestNote = isNewBest ? ' — 🏆 neue Bestleistung!' : ' · Bestleistung (' + difficulty + '): ' + Math.max(best, completedLaps);
+      const crashNote = (raceEndReason === 'lives' && !manualQuit) ? ' — kein Problem, einfach nochmal versuchen!' : '';
+      q('final-note').textContent = (completedLaps === 1 ? 'Runde geschafft' : 'Runden geschafft') + partialNote + bestNote + crashNote;
+    } else {
+      const best = getScoreBest(gameMode, difficulty);
+      const isNewBest = score > best;
+      if(isNewBest) setScoreBest(gameMode, difficulty, score);
+
+      if(manualQuit){
+        q('gameover-eyebrow').textContent = 'Casus Interruptus';
+        q('gameover-title').textContent = 'Spiel abgebrochen';
+      } else {
+        q('gameover-eyebrow').textContent = 'Tabulae Fractae';
+        q('gameover-title').textContent = 'Die Tafeln sind zerbrochen';
+      }
+      q('final-score').textContent = score;
+      const bestNote = isNewBest ? ' — 🏆 neue Bestleistung!' : ' · Bestleistung (' + difficulty + '): ' + Math.max(best, score);
+      q('final-note').textContent = (score === 1 ? 'Punkt gesammelt' : 'Punkte gesammelt') + bestNote;
+    }
+
+    renderMistakeReview();
+  }
+
+  function renderMistakeReview(){
+    const box = q('mistake-review');
+    const list = q('mistake-list');
+    list.innerHTML = '';
+
+    if(sessionMistakes.length === 0){
+      box.classList.add('perfect');
+      q('mistake-review-title').textContent = 'Fehlerfrei – optime! 🏛️';
+      return;
+    }
+    box.classList.remove('perfect');
+    q('mistake-review-title').textContent = 'Das lohnt sich zu üben:';
+
+    // Nach Wortform+Bedeutung buendeln und nach Haeufigkeit sortieren
+    const grouped = new Map();
+    sessionMistakes.forEach(m=>{
+      const key = m.form + '||' + m.meaning;
+      if(!grouped.has(key)){
+        grouped.set(key, { form: m.form, meaning: m.meaning, cases: m.cases, count: 0 });
+      }
+      grouped.get(key).count++;
+    });
+    const rows = Array.from(grouped.values()).sort((a,b)=> b.count - a.count).slice(0, 8);
+
+    rows.forEach(r=>{
+      const names = r.cases.map(id => CASES.find(c=>c.id===id).name).join(' / ');
+      const row = document.createElement('div');
+      row.className = 'mistake-row';
+      row.innerHTML =
+        '<span class="mistake-form">' + r.form + (r.count > 1 ? '<span class="mistake-count">' + r.count + '×</span>' : '') + '</span>' +
+        '<span class="mistake-answer">' + names + '</span>';
+      list.appendChild(row);
+    });
+  }
+
+  /* ---------------- FÄNGER-MODUS ---------------- */
+  function startFaengerGame(){
+    fallSpeed = currentDiff.fallSpeed; spawnDelay = currentDiff.spawnDelay;
+    tablets.forEach(t => t.el.remove());
+    tablets = [];
+    selectedIndex = 2;
+    updateCartPosition();
+    q('urn-row').querySelectorAll('.urn').forEach((u,i)=>u.classList.toggle('selected', i===selectedIndex));
+
+    running = true;
+    lastFrame = performance.now();
+    requestAnimationFrame(loop);
+    scheduleSpawn();
+  }
+
+  function scheduleSpawn(){
+    if(!running) return;
+    spawnTablet();
+    spawnTimer = setTimeout(scheduleSpawn, spawnDelay);
+  }
+
+  function spawnTablet(){
+    const pool = currentWordPool();
+    const entry = pool[Math.floor(Math.random()*pool.length)];
+    const field = q('playfield');
+    const fw = field.clientWidth;
+
+    const el = document.createElement('div');
+    el.className = 'tablet';
+    el.textContent = entry.form;
+    el.title = entry.meaning;
+    field.appendChild(el);
+
+    const tw = el.offsetWidth || 100;
+    const x = Math.random() * Math.max(10, fw - tw - 20) + 10;
+
+    const t = {
+      id: tabletSeq++,
+      el, x, y: -60,
+      w: tw, h: el.offsetHeight || 46,
+      form: entry.form, meaning: entry.meaning,
+      cases: entry.cases,
+      resolved:false
+    };
+    el.style.transform = 'translate(' + x + 'px,' + t.y + 'px)';
+    tablets.push(t);
+  }
+
+  function loop(now){
+    if(!running) return;
+    const dt = Math.min(64, now - lastFrame) / 1000;
+    lastFrame = now;
+
+    const field = q('playfield');
+    const catchLineY = field.clientHeight - 4; // top edge of urn strip
+
+    for(let i = tablets.length - 1; i >= 0; i--){
+      const t = tablets[i];
+      if(t.resolved) continue;
+      t.y += fallSpeed * dt;
+      t.el.style.transform = 'translate(' + t.x + 'px,' + t.y + 'px)';
+
+      if(t.y + t.h >= catchLineY){
+        resolveCatch(t);
+      }
+    }
+
+    requestAnimationFrame(loop);
+  }
+
+  function resolveCatch(t){
+    t.resolved = true;
+    const chosen = CASES[selectedIndex];
+    const isCorrect = t.cases.indexOf(chosen.id) !== -1;
+    const urns = q('urn-row').children;
+    const urnEl = urns[selectedIndex];
+
+    if(isCorrect){
+      streak++;
+      const mult = streakMultiplier(streak);
+      const bonus = Math.round(currentDiff.basePoints * mult);
+      score += bonus;
+      q('score').textContent = score;
+      showStreak();
+      urnEl.classList.remove('flash-correct'); void urnEl.offsetWidth; urnEl.classList.add('flash-correct');
+      const otherCases = t.cases.filter(c => c !== chosen.id).map(id => CASES.find(c=>c.id===id).name);
+      const multNote = mult > 1 ? ('×' + mult.toFixed(2).replace(/\.?0+$/,'') + (otherCases.length ? '  ' : '')) : '';
+      const extra = multNote + (otherCases.length ? 'auch: ' + otherCases.join(' / ') : '');
+      spawnFloater('playfield', '+' + bonus, extra, t.x + t.w/2, t.y, true);
+      t.el.classList.add('correct');
+    } else {
+      streak = 0;
+      lives--;
+      updateLives();
+      q('streak').classList.remove('show');
+      urnEl.classList.remove('flash-wrong'); void urnEl.offsetWidth; urnEl.classList.add('flash-wrong');
+      const correctNames = t.cases.map(id => CASES.find(c=>c.id===id).name).join(' / ');
+      spawnFloater('playfield', 'nicht ' + chosen.name, '(richtig: ' + correctNames + ')', t.x + t.w/2, t.y, false);
+      t.el.classList.add('wrong');
+      recordMistake(t.form, t.meaning, t.cases);
+    }
+
+    setTimeout(()=>{
+      t.el.remove();
+      tablets = tablets.filter(x => x.id !== t.id);
+    }, 420);
+
+    // difficulty ramp
+    if(score > 0 && score % 40 < 10 && isCorrect){
+      fallSpeed = Math.min(currentDiff.maxFallSpeed, fallSpeed * 1.015);
+      spawnDelay = Math.max(currentDiff.minSpawnDelay, spawnDelay * 0.985);
+    }
+
+    if(lives <= 0){
+      endGame();
+    }
+  }
+
+  /* ---------------- SLICE-MODUS ---------------- */
+  function startSliceGame(){
+    sliceTablets.forEach(t => t.el.remove());
+    sliceTablets = [];
+    trailPoints = [];
+
+    const field = q('slice-field');
+    const canvas = q('slice-canvas');
+    canvas.width = field.clientWidth;
+    canvas.height = field.clientHeight;
+    sliceCtx = canvas.getContext('2d');
+
+    targetCaseId = randomTargetCase(null);
+    updateTargetDisplay();
+    resetTargetProgress(currentDiff.targetInterval);
+    scheduleGuaranteedMatches();
+
+    sliceRunning = true;
+    scheduleTargetRotation();
+    sliceLastFrame = performance.now();
+    sliceRafId = requestAnimationFrame(sliceLoop);
+    scheduleSliceSpawn();
+  }
+
+  function randomTargetCase(excludeId){
+    const pool = CASES.filter(c => c.id !== excludeId);
+    return pool[Math.floor(Math.random() * pool.length)].id;
+  }
+
+  function updateTargetDisplay(){
+    const c = CASES.find(c => c.id === targetCaseId);
+    const nameEl = q('target-case-name');
+    nameEl.textContent = c.name;
+    nameEl.style.color = CASE_COLOR[c.id];
+  }
+
+  function resetTargetProgress(duration){
+    const fill = q('target-progress-fill');
+    if(fill._progressAnim){ fill._progressAnim.cancel(); }
+    fill.style.width = '100%';
+    // Web Animations API statt CSS-Transition-Trick: laeuft zuverlaessig
+    // unabhaengig von Reflow-Timing/Browser-Eigenheiten.
+    fill._progressAnim = fill.animate(
+      [{ width: '100%' }, { width: '0%' }],
+      { duration: duration, easing: 'linear', fill: 'forwards' }
+    );
+  }
+
+  // Sorgt dafuer, dass waehrend JEDES Zielkasus-Zyklus mindestens zwei Tafeln
+  // auftauchen, die garantiert zum aktuellen Ziel passen - unabhaengig vom
+  // Zufall der regulaeren Spawns. Verhindert lange Wartezeiten ohne passendes Wort.
+  function scheduleGuaranteedMatches(){
+    guaranteedSpawnTimers.forEach(id => clearTimeout(id));
+    guaranteedSpawnTimers = [];
+    const interval = currentDiff.targetInterval;
+    [0.15, 0.5].forEach(frac=>{
+      const id = setTimeout(()=>{
+        if(sliceRunning) spawnSliceTablet(true);
+      }, interval * frac);
+      guaranteedSpawnTimers.push(id);
+    });
+  }
+
+  function scheduleTargetRotation(){
+    if(!sliceRunning) return;
+    targetTimer = setTimeout(()=>{
+      targetCaseId = randomTargetCase(targetCaseId);
+      updateTargetDisplay();
+      resetTargetProgress(currentDiff.targetInterval);
+      scheduleGuaranteedMatches();
+      scheduleTargetRotation();
+    }, currentDiff.targetInterval);
+  }
+
+  function scheduleSliceSpawn(){
+    if(!sliceRunning) return;
+    spawnSliceTablet(false);
+    sliceSpawnTimer = setTimeout(scheduleSliceSpawn, currentDiff.sliceSpawnDelay);
+  }
+
+  function spawnSliceTablet(forceMatch){
+    const pool = currentWordPool();
+    let candidates = pool;
+    if(forceMatch){
+      const matching = pool.filter(w => w.cases.includes(targetCaseId));
+      if(matching.length) candidates = matching;
+    }
+    const entry = candidates[Math.floor(Math.random() * candidates.length)];
+    const field = q('slice-field');
+    const fw = field.clientWidth, fh = field.clientHeight;
+
+    const el = document.createElement('div');
+    el.className = 'tablet';
+    el.textContent = entry.form;
+    el.title = entry.meaning;
+    field.appendChild(el);
+
+    const tw = el.offsetWidth || 100, th = el.offsetHeight || 46;
+    const x0 = Math.random() * Math.max(10, fw - tw - 20) + 10;
+    const y0 = fh - th - 6;
+
+    // Flugbahn so berechnen, dass die Tafel unabhängig von der Bildschirmgröße
+    // eine feste Zielhöhe (Anteil der Spielfeldhöhe) erreicht und dafür eine
+    // feste Zeitspanne braucht - daraus ergeben sich Anfangstempo & Schwerkraft.
+    const airtime = currentDiff.sliceAirtimeMin + Math.random() * (currentDiff.sliceAirtimeMax - currentDiff.sliceAirtimeMin);
+    const peakHeight = currentDiff.slicePeakFraction * fh * (0.9 + Math.random() * 0.2); // leichte Streuung
+    const vy = -(4 * peakHeight / airtime);
+    const gravity = (8 * peakHeight) / (airtime * airtime);
+    const vx = (Math.random() - 0.5) * 46;
+
+    const t = {
+      id: sliceTabletSeq++,
+      el, x: x0, y: y0, vx, vy, gravity, w: tw, h: th,
+      form: entry.form, meaning: entry.meaning,
+      cases: entry.cases, resolved: false
+    };
+    el.style.transform = 'translate(' + x0 + 'px,' + y0 + 'px)';
+    sliceTablets.push(t);
+  }
+
+  function sliceLoop(now){
+    if(!sliceRunning) return;
+    const dt = Math.min(64, now - sliceLastFrame) / 1000;
+    sliceLastFrame = now;
+
+    const field = q('slice-field');
+    const fw = field.clientWidth, fh = field.clientHeight;
+
+    for(let i = sliceTablets.length - 1; i >= 0; i--){
+      const t = sliceTablets[i];
+      if(t.resolved) continue;
+      t.vy += t.gravity * dt;
+      t.x += t.vx * dt;
+      t.y += t.vy * dt;
+      const rot = Math.max(-25, Math.min(25, t.vx * 0.15));
+      t.el.style.transform = 'translate(' + t.x + 'px,' + t.y + 'px) rotate(' + rot.toFixed(1) + 'deg)';
+
+      if(t.y > fh + 80 || t.x < -160 || t.x > fw + 160){
+        handleSliceMiss(t);
+      }
+    }
+
+    drawTrail();
+    sliceRafId = requestAnimationFrame(sliceLoop);
+  }
+
+  function handleSliceMiss(t){
+    t.resolved = true;
+    // Verpasste (nicht geschnittene) Tafeln haben keine Konsequenz - weder
+    // Herzverlust noch Serienabbruch. Bei mehreren gleichzeitig fliegenden
+    // Tafeln ist es normal, nicht jede zu erwischen; nur ein aktiver
+    // Fehlschnitt (siehe resolveSlice) reißt die Serie ab.
+    t.el.remove();
+    sliceTablets = sliceTablets.filter(x => x.id !== t.id);
+  }
+
+  function resolveSlice(t){
+    t.resolved = true;
+    const isCorrect = t.cases.indexOf(targetCaseId) !== -1;
+    const targetName = CASES.find(c => c.id === targetCaseId).name;
+
+    if(isCorrect){
+      streak++;
+      const mult = streakMultiplier(streak);
+      const bonus = Math.round(currentDiff.basePoints * mult);
+      score += bonus;
+      q('score').textContent = score;
+      showStreak();
+      const otherCases = t.cases.filter(c => c !== targetCaseId).map(id => CASES.find(c=>c.id===id).name);
+      const multNote = mult > 1 ? ('×' + mult.toFixed(2).replace(/\.?0+$/,'') + (otherCases.length ? '  ' : '')) : '';
+      const extra = multNote + (otherCases.length ? 'auch: ' + otherCases.join(' / ') : '');
+      spawnFloater('slice-field', '+' + bonus, extra, t.x + t.w/2, t.y, true);
+      t.el.classList.add('correct');
+    } else {
+      streak = 0;
+      lives--;
+      updateLives();
+      q('streak').classList.remove('show');
+      const correctNames = t.cases.map(id => CASES.find(c=>c.id===id).name).join(' / ');
+      spawnFloater('slice-field', 'nicht ' + targetName, '(richtig: ' + correctNames + ')', t.x + t.w/2, t.y, false);
+      t.el.classList.add('wrong');
+      recordMistake(t.form, t.meaning, t.cases);
+    }
+
+    setTimeout(()=>{
+      t.el.remove();
+      sliceTablets = sliceTablets.filter(x => x.id !== t.id);
+    }, 380);
+
+    if(lives <= 0){
+      endGame();
+    }
+  }
+
+  /* ---- Wisch-Erkennung (Pointer Events, Maus + Touch) ---- */
+  function getFieldPoint(e, fieldEl){
+    const rect = fieldEl.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+
+  function pointInRect(p, rx, ry, rw, rh){
+    return p.x >= rx && p.x <= rx+rw && p.y >= ry && p.y <= ry+rh;
+  }
+
+  function segmentsIntersect(p1,p2,p3,p4){
+    function ccw(a,b,c){ return (c.y-a.y)*(b.x-a.x) > (b.y-a.y)*(c.x-a.x); }
+    return ccw(p1,p3,p4) !== ccw(p2,p3,p4) && ccw(p1,p2,p3) !== ccw(p1,p2,p4);
+  }
+
+  function segmentIntersectsRect(p1, p2, rx, ry, rw, rh){
+    if(pointInRect(p1,rx,ry,rw,rh) || pointInRect(p2,rx,ry,rw,rh)) return true;
+    const c1 = {x:rx,y:ry}, c2 = {x:rx+rw,y:ry}, c3 = {x:rx+rw,y:ry+rh}, c4 = {x:rx,y:ry+rh};
+    return segmentsIntersect(p1,p2,c1,c2) || segmentsIntersect(p1,p2,c2,c3) ||
+           segmentsIntersect(p1,p2,c3,c4) || segmentsIntersect(p1,p2,c4,c1);
+  }
+
+  function onSlicePointerDown(e){
+    if(gameMode !== 'slice' || !sliceRunning) return;
+    isSlicing = true;
+    const field = q('slice-field');
+    lastPointerPos = getFieldPoint(e, field);
+    trailPoints.push({ x:lastPointerPos.x, y:lastPointerPos.y, t: performance.now() });
+    e.preventDefault();
+  }
+
+  function onSlicePointerMove(e){
+    if(!isSlicing || !sliceRunning) return;
+    const field = q('slice-field');
+    const p = getFieldPoint(e, field);
+    trailPoints.push({ x:p.x, y:p.y, t: performance.now() });
+    if(trailPoints.length > 24) trailPoints.shift();
+
+    if(lastPointerPos){
+      for(let i = sliceTablets.length - 1; i >= 0; i--){
+        const t = sliceTablets[i];
+        if(t.resolved) continue;
+        if(segmentIntersectsRect(lastPointerPos, p, t.x, t.y, t.w, t.h)){
+          resolveSlice(t);
+        }
+      }
+    }
+    lastPointerPos = p;
+    e.preventDefault();
+  }
+
+  function onSlicePointerUp(){
+    isSlicing = false;
+    lastPointerPos = null;
+  }
+
+  function drawTrail(){
+    if(!sliceCtx) return;
+    const canvas = sliceCtx.canvas;
+    sliceCtx.clearRect(0, 0, canvas.width, canvas.height);
+    const now = performance.now();
+    trailPoints = trailPoints.filter(p => now - p.t < 220);
+    if(trailPoints.length < 2) return;
+    sliceCtx.lineCap = 'round';
+    sliceCtx.lineJoin = 'round';
+    for(let i = 1; i < trailPoints.length; i++){
+      const p0 = trailPoints[i-1], p1 = trailPoints[i];
+      const age = Math.min(1, (now - p1.t) / 220);
+      sliceCtx.strokeStyle = 'rgba(230,191,106,' + (1-age).toFixed(2) + ')';
+      sliceCtx.lineWidth = 6 * (1-age) + 1;
+      sliceCtx.beginPath();
+      sliceCtx.moveTo(p0.x, p0.y);
+      sliceCtx.lineTo(p1.x, p1.y);
+      sliceCtx.stroke();
+    }
+  }
+
+  function spawnFloater(fieldId, mainText, extraText, x, y, good){
+    const field = q(fieldId);
+    const f = document.createElement('div');
+    f.className = 'floater ' + (good ? 'good' : 'bad');
+    if(extraText){
+      f.innerHTML = mainText + '<span class="extra">' + extraText + '</span>';
+    } else {
+      f.textContent = mainText;
+    }
+    f.style.left = x + 'px';
+    f.style.top = y + 'px';
+    field.appendChild(f);
+    setTimeout(()=> f.remove(), 820);
+  }
+
+  // Serien-Multiplikator: klar spuerbare Stufen statt kleiner Einzelpunkte.
+  // Steigt schon bei kurzen Serien (2-3 richtig) spuerbar an, damit der Bonus
+  // auch bei realistischen Serienlaengen ankommt - nicht erst ab Serie 6+.
+  function streakMultiplier(streak){
+    if(streak >= 10) return 2.5;
+    if(streak >= 7)  return 2.0;
+    if(streak >= 4)  return 1.6;
+    if(streak >= 2)  return 1.3;
+    return 1.0;
+  }
+
+  function showStreak(){
+    const s = q('streak');
+    if(streak >= 2){
+      const mult = streakMultiplier(streak);
+      s.textContent = 'Serie x' + streak + '  •  Bonus ×' + mult.toFixed(2).replace(/\.?0+$/,'');
+      s.classList.add('show');
+      s.classList.toggle('streak-hot', streak >= 7);
+    } else {
+      s.classList.remove('show');
+    }
+  }
+
+  function recordMistake(form, meaning, cases){
+    sessionMistakes.push({ form, meaning, cases });
+  }
+
+  /* ---------------- WAGENRENNEN-MODUS ---------------- */
+  function startRennenGame(){
+    raceDistance = 0;
+    raceAnswering = false;
+    raceLastLap = 1;
+    raceEndReason = 'time';
+    updateRaceLapDisplay(false);
+    positionRig(false);
+
+    raceTimeLeft = currentDiff.raceDuration;
+    q('race-time-left').textContent = Math.ceil(raceTimeLeft/1000);
+    const fill = q('race-time-fill');
+    if(fill._raceAnim) fill._raceAnim.cancel();
+    fill.style.width = '100%';
+    fill._raceAnim = fill.animate(
+      [{ width: '100%' }, { width: '0%' }],
+      { duration: currentDiff.raceDuration, easing: 'linear', fill: 'forwards' }
+    );
+    raceIntervalTimer = setInterval(()=>{
+      raceTimeLeft -= 200;
+      q('race-time-left').textContent = Math.max(0, Math.ceil(raceTimeLeft/1000));
+      if(raceTimeLeft <= 0){
+        raceEndReason = 'time';
+        endGame();
+      }
+    }, 200);
+
+    raceRunning = true;
+    pickNextRaceWord();
+  }
+
+  // Positioniert das Pferdegespann rein nach Rundenfortschritt (kein Dauerlauf/Scrollen).
+  // Bei einer neuen Runde springt es ohne Animation zurueck an den Start.
+  function positionRig(animated){
+    const rig = q('race-rig');
+    if(!rig) return;
+    const progressInLap = (raceDistance % RACE_LAP_LENGTH) / RACE_LAP_LENGTH;
+    const leftPct = RACE_RIG_MIN + progressInLap * (RACE_RIG_MAX - RACE_RIG_MIN);
+    if(!animated){
+      rig.style.transition = 'none';
+      rig.style.left = leftPct + '%';
+      void rig.offsetWidth;
+      rig.style.transition = 'left .6s ease-out';
+    } else {
+      rig.style.left = leftPct + '%';
+    }
+  }
+
+  function currentLap(){
+    return Math.floor(raceDistance / RACE_LAP_LENGTH) + 1;
+  }
+
+  function updateRaceLapDisplay(celebrateIfNewLap){
+    const lap = currentLap();
+    q('race-lap').textContent = lap;
+    q('score').textContent = lap; // HUD zeigt dieselbe Rundenzahl wie die Bahnanzeige
+    const progressInLap = (raceDistance % RACE_LAP_LENGTH) / RACE_LAP_LENGTH * 100;
+    q('race-lap-progress-fill').style.width = progressInLap + '%';
+
+    const lapChanged = celebrateIfNewLap && lap > raceLastLap;
+
+    if(lapChanged){
+      const flash = q('lap-flash');
+      flash.classList.remove('show'); void flash.offsetWidth;
+      flash.classList.add('show');
+      spawnFloater('race-track', 'Runde ' + lap + '!', '', q('race-track').clientWidth/2, q('race-track').clientHeight/2, true);
+
+      // Gespann erst ans Bahnende gleiten lassen (Runde abschliessen),
+      // danach ohne Sprung-Ruckeln an den Start der neuen Runde setzen.
+      const rig = q('race-rig');
+      if(rig){
+        rig.style.left = RACE_RIG_MAX + '%';
+        setTimeout(()=> positionRig(false), 620);
+      }
+    } else {
+      positionRig(true);
+    }
+    raceLastLap = lap;
+  }
+
+  function pickNextRaceWord(){
+    if(!raceRunning) return;
+    raceAnswering = true;
+    const pool = currentWordPool();
+    raceCurrentWord = pool[Math.floor(Math.random() * pool.length)];
+    q('race-card').textContent = raceCurrentWord.form;
+    q('race-card').title = raceCurrentWord.meaning;
+
+    const qfill = q('race-qtimer-fill');
+    if(qfill._raceQAnim) qfill._raceQAnim.cancel();
+    qfill.style.width = '100%';
+    qfill._raceQAnim = qfill.animate(
+      [{ width: '100%' }, { width: '0%' }],
+      { duration: currentDiff.raceQuestionTime, easing: 'linear', fill: 'forwards' }
+    );
+
+    clearTimeout(raceQuestionTimer);
+    raceQuestionTimer = setTimeout(()=>{
+      if(raceRunning && raceAnswering) answerRace(null); // Zeit abgelaufen: wie Fehler werten
+    }, currentDiff.raceQuestionTime);
+  }
+
+  function answerRace(chosenCaseId){
+    if(!raceRunning || !raceAnswering || !raceCurrentWord) return;
+    raceAnswering = false;
+    clearTimeout(raceQuestionTimer);
+
+    const card = q('race-card');
+    const isCorrect = chosenCaseId !== null && raceCurrentWord.cases.indexOf(chosenCaseId) !== -1;
+
+    if(isCorrect){
+      streak++;
+      const mult = streakMultiplier(streak);
+      const gain = Math.round(currentDiff.raceStepBase * mult);
+      raceDistance += gain;
+      updateRaceLapDisplay(true);
+      showStreak();
+      const otherCases = raceCurrentWord.cases.filter(c => c !== chosenCaseId).map(id => CASES.find(c=>c.id===id).name);
+      const multNote = mult > 1 ? ('×' + mult.toFixed(2).replace(/\.?0+$/,'') + (otherCases.length ? '  ' : '')) : '';
+      const extra = multNote + (otherCases.length ? 'auch: ' + otherCases.join(' / ') : '');
+      spawnFloater('race-card-wrap', '+' + gain, extra, q('race-card-wrap').clientWidth/2, 6, true);
+      card.classList.add('correct');
+    } else {
+      streak = 0;
+      q('streak').classList.remove('show');
+      const correctNames = raceCurrentWord.cases.map(id => CASES.find(c=>c.id===id).name).join(' / ');
+      const label = chosenCaseId === null ? 'zu langsam!' : 'nicht ' + CASES.find(c=>c.id===chosenCaseId).name;
+      spawnFloater('race-card-wrap', label, '(richtig: ' + correctNames + ')', q('race-card-wrap').clientWidth/2, 6, false);
+      card.classList.add('wrong');
+      recordMistake(raceCurrentWord.form, raceCurrentWord.meaning, raceCurrentWord.cases);
+
+      lives--;
+      updateLives();
+      if(lives <= 0){
+        raceEndReason = 'lives';
+        setTimeout(()=> endGame(), 420);
+        return;
+      }
+    }
+
+    setTimeout(()=>{
+      card.classList.remove('correct','wrong');
+      if(raceRunning) pickNextRaceWord();
+    }, 420);
+  }
+
+  /* ---------------- INPUT ---------------- */
+  document.addEventListener('keydown', (e)=>{
+    if(!running) return;
+    if(e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A'){
+      selectUrn(selectedIndex - 1);
+    } else if(e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D'){
+      selectUrn(selectedIndex + 1);
+    } else if(e.key >= '1' && e.key <= '5'){
+      selectUrn(parseInt(e.key,10) - 1);
+    }
+  });
+
+  function quitGame(){
+    // confirm() pausiert waehrend der Anzeige zuverlaessig alle Timer/rAF-Schleifen,
+    // dadurch ist kein separates Pause/Resume noetig.
+    if(!confirm('Spiel wirklich beenden? Der Fortschritt dieser Runde geht verloren.')) return;
+    manualQuit = true;
+    endGame();
+  }
+
+  function backToMenu(){
+    q('gameover-screen').classList.add('hidden');
+    q('start-screen').classList.remove('hidden');
+    updateModeHint(); // Bestleistungen auf den Modus-Karten koennten sich gerade aktualisiert haben
+  }
+
+  /* ---------------- HELL/DUNKEL-THEME ---------------- */
+  function applyTheme(theme){
+    if(theme === 'light'){
+      document.documentElement.setAttribute('data-theme', 'light');
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+    }
+    try{ localStorage.setItem('casus_theme', theme); } catch(e){ /* ignorieren, z.B. privater Modus */ }
+    updateThemeToggleIcon();
+  }
+
+  function updateThemeToggleIcon(){
+    const btn = q('theme-toggle');
+    if(!btn) return;
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    btn.textContent = isLight ? '🌙' : '☀️';
+    btn.setAttribute('aria-label', isLight ? 'Dunkles Design aktivieren' : 'Helles Design aktivieren');
+  }
+
+  function toggleTheme(){
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    applyTheme(isLight ? 'dark' : 'light');
+  }
+
+  /* ---------------- INIT ---------------- */
+  buildUrns();
+  buildLegend();
+  buildLives();
+  buildGroupSelect();
+  buildNumSelect();
+  buildDifficultySelect();
+  buildLektionSelect();
+  buildModeSelect();
+  updateSettingsSummary();
+  q('start-btn').addEventListener('click', startGame);
+  q('restart-btn').addEventListener('click', startGame);
+  q('quit-btn').addEventListener('click', quitGame);
+  q('menu-btn').addEventListener('click', backToMenu);
+  q('theme-toggle').addEventListener('click', toggleTheme);
+  updateThemeToggleIcon();
+
+  const sliceField = q('slice-field');
+  sliceField.addEventListener('pointerdown', onSlicePointerDown);
+  sliceField.addEventListener('pointermove', onSlicePointerMove);
+  window.addEventListener('pointerup', onSlicePointerUp);
+  window.addEventListener('pointercancel', onSlicePointerUp);
+
+  window.addEventListener('resize', ()=>{
+    updateCartPosition();
+    if(sliceCtx){
+      const field = q('slice-field');
+      sliceCtx.canvas.width = field.clientWidth;
+      sliceCtx.canvas.height = field.clientHeight;
+    }
+  });
+
+})();
+</script>
+</body>
+</html>
