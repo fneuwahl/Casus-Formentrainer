@@ -236,7 +236,7 @@
   /* ---------- MODE CARDS ---------- */
   .mode-cards{
     display:grid;
-    grid-template-columns:repeat(3,1fr);
+    grid-template-columns:repeat(2,1fr);
     gap:12px;
     width:100%;
     max-width:640px;
@@ -738,6 +738,98 @@
     100%{ transform:translateX(0); box-shadow:0 4px 0 #b5a06f, 0 10px 18px rgba(0,0,0,.4); }
   }
 
+  /* ---------- KATAPULT MODE ---------- */
+  #katapult-target-bar{
+    display:flex;
+    align-items:center;
+    gap:16px;
+    padding:9px 22px;
+    background:var(--panel-dark);
+    border-bottom:1px solid var(--stone-line);
+    flex:none;
+  }
+  #katapult-target-label{
+    font-family:'Cinzel',serif;
+    font-size:14px;
+    color:var(--text-secondary);
+    letter-spacing:.03em;
+    white-space:nowrap;
+  }
+  #katapult-target-name{
+    text-transform:uppercase;
+    letter-spacing:.06em;
+  }
+  #katapult-target-fill{
+    height:100%;
+    width:100%;
+    background:linear-gradient(90deg, var(--gold), var(--gold-bright));
+  }
+
+  #katapult-field{
+    position:relative;
+    flex:1;
+    overflow:hidden;
+    touch-action:none;
+    cursor:crosshair;
+    background:linear-gradient(180deg, var(--arena-bg-1) 0%, var(--arena-bg-3) 100%);
+  }
+  #katapult-canvas{
+    position:absolute;
+    inset:0;
+    pointer-events:none;
+    z-index:6;
+  }
+  #katapult-base{
+    position:absolute;
+    left:2%;
+    bottom:4%;
+    width:clamp(90px,16vw,150px);
+    z-index:4;
+  }
+  .kat-svg{ width:100%; height:auto; overflow:visible; }
+  .kat-leg{ fill:#6b4a2e; stroke:#3a2a1c; stroke-width:2; }
+  .kat-crossbar{ stroke:#3a2a1c; stroke-width:6; stroke-linecap:round; }
+  .kat-arm{
+    stroke:#8a6a3e; stroke-width:7; stroke-linecap:round;
+    transform-origin:42px 64px;
+    transition:transform .18s cubic-bezier(.3,1.6,.4,1);
+  }
+  .kat-arm.fired{ transform:rotate(55deg); }
+  .kat-stone{ fill:#5a5248; stroke:#2e2a24; stroke-width:1.5; }
+
+  .katapult-target{
+    position:absolute;
+    min-width:88px;
+    padding:9px 13px;
+    background:linear-gradient(180deg, var(--parchment), var(--parchment-dark));
+    border:2px solid #7a6023;
+    border-radius:5px;
+    color:var(--ink);
+    font-family:'Cinzel',serif;
+    font-size:15px;
+    text-align:center;
+    box-shadow:0 3px 0 #b5a06f, 0 8px 14px rgba(0,0,0,.4);
+    transform:translate(-50%,-50%);
+    z-index:3;
+    pointer-events:none;
+    user-select:none;
+    -webkit-user-select:none;
+    -webkit-touch-callout:none;
+  }
+  .katapult-target.correct{ animation:zapCorrect .32s ease forwards; }
+  .katapult-target.wrong{ animation:crackWrong .4s ease forwards; }
+
+  .kat-projectile{
+    position:absolute;
+    width:16px;
+    height:16px;
+    border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #8a8478, #45403a);
+    box-shadow:0 2px 4px rgba(0,0,0,.5);
+    z-index:5;
+    pointer-events:none;
+  }
+
   /* falling tablet */
   .tablet{
     position:absolute;
@@ -1029,6 +1121,11 @@
     .amphora-svg{ width:clamp(28px,6vw,44px); }
     #race-card{ padding:8px 20px; font-size:clamp(18px,4vw,28px); }
     #race-card-wrap{ gap:6px; }
+
+    /* Katapult: bei wenig Hoehe kompakteres Katapult-Modell und kleinere Ziele */
+    #katapult-target-bar{ padding:5px 16px; }
+    #katapult-base{ width:clamp(64px,12vw,110px); }
+    .katapult-target{ font-size:13px; padding:6px 10px; min-width:70px; }
   }
 </style>
 </head>
@@ -1066,6 +1163,12 @@
         <svg class="mode-icon" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"><circle cx="50" cy="50" r="36" stroke-width="7"/><path d="M50,14 L50,86 M14,50 L86,50 M24,24 L76,76 M76,24 L24,76"/><circle cx="50" cy="50" r="7" fill="currentColor" stroke="none"/></svg>
         <span class="mode-card-title">Wagenrennen</span>
         <span class="mode-card-desc">Tippe schnell die richtige Amphore an und drehe deine Runden. 3 Fehler und der Wagen kommt von der Bahn ab.</span>
+        <span class="mode-card-note"></span>
+      </button>
+      <button class="mode-card" data-mode="katapult" type="button">
+        <svg class="mode-icon" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"><circle cx="50" cy="50" r="34" stroke-width="6"/><circle cx="50" cy="50" r="18" stroke-width="6"/><circle cx="50" cy="50" r="4" fill="currentColor" stroke="none"/><path d="M8,50 L26,50 M74,50 L92,50 M50,8 L50,26 M50,74 L50,92"/></svg>
+        <span class="mode-card-title">Katapult</span>
+        <span class="mode-card-desc">Ziehe den Stein in Richtung des Ziels, das zum Ziel&#8209;Kasus passt, und lass los.</span>
         <span class="mode-card-note"></span>
       </button>
     </div>
@@ -1147,6 +1250,11 @@
       <div class="progress-track"><div id="race-time-fill"></div></div>
     </div>
 
+    <div id="katapult-target-bar" class="hidden">
+      <span id="katapult-target-label">Ziel-Kasus: <b id="katapult-target-name">Dativ</b></span>
+      <div class="progress-track"><div id="katapult-target-fill"></div></div>
+    </div>
+
     <div id="arena-faenger" class="arena">
       <div id="playfield"></div>
       <div id="urn-strip">
@@ -1204,6 +1312,21 @@
       </div>
       <div class="urn-strip">
         <div id="urn-row-rennen"></div>
+      </div>
+    </div>
+
+    <div id="arena-katapult" class="arena hidden">
+      <div id="katapult-field">
+        <canvas id="katapult-canvas"></canvas>
+        <div id="katapult-base">
+          <svg viewBox="0 0 140 100" class="kat-svg">
+            <path d="M10,95 L40,28 L50,28 L30,95 Z" class="kat-leg"/>
+            <path d="M130,95 L90,28 L80,28 L110,95 Z" class="kat-leg"/>
+            <path d="M18,64 L122,64" class="kat-crossbar"/>
+            <path d="M42,64 L98,18" class="kat-arm" id="kat-arm"/>
+            <circle cx="98" cy="18" r="9" class="kat-stone" id="kat-stone-rest"/>
+          </svg>
+        </div>
       </div>
     </div>
   </div>
@@ -1894,17 +2017,25 @@ const WORDS = [
   const DIFFICULTIES = {
     leicht: { fallSpeed: 32,  spawnDelay: 3000, maxFallSpeed: 100, minSpawnDelay: 1500, basePoints: 8,
                sliceSpawnDelay: 2300, slicePeakFraction: 0.82, sliceAirtimeMin: 5.8, sliceAirtimeMax: 6.5, targetInterval: 10000,
-               raceQuestionTime: 7500, raceStepBase: 15, raceDuration: 60000, startLives: 3 },
+               raceQuestionTime: 7500, raceStepBase: 15, raceDuration: 60000, startLives: 3,
+               katTargetCount: 3, katTargetInterval: 11000, katGravityFactor: 0.85, katPowerScale: 2.6, katMaxPowerFactor: 1.55 },
     mittel: { fallSpeed: 42,  spawnDelay: 2600, maxFallSpeed: 130, minSpawnDelay: 1150, basePoints: 10,
                sliceSpawnDelay: 1850, slicePeakFraction: 0.75, sliceAirtimeMin: 4.6, sliceAirtimeMax: 5.3, targetInterval: 8000,
-               raceQuestionTime: 4500, raceStepBase: 20, raceDuration: 60000, startLives: 3 },
+               raceQuestionTime: 4500, raceStepBase: 20, raceDuration: 60000, startLives: 3,
+               katTargetCount: 4, katTargetInterval: 9000, katGravityFactor: 1.08, katPowerScale: 2.6, katMaxPowerFactor: 1.70 },
     schwer: { fallSpeed: 54,  spawnDelay: 2200, maxFallSpeed: 165, minSpawnDelay: 900,  basePoints: 12,
                sliceSpawnDelay: 1450, slicePeakFraction: 0.65, sliceAirtimeMin: 3.6, sliceAirtimeMax: 4.2, targetInterval: 6500,
-               raceQuestionTime: 2800, raceStepBase: 25, raceDuration: 60000, startLives: 3 },
+               raceQuestionTime: 2800, raceStepBase: 25, raceDuration: 60000, startLives: 3,
+               katTargetCount: 5, katTargetInterval: 7000, katGravityFactor: 1.35, katPowerScale: 2.6, katMaxPowerFactor: 1.85 },
     uebung: { fallSpeed: 24,  spawnDelay: 3800, maxFallSpeed: 24,  minSpawnDelay: 3800, basePoints: 8,
                sliceSpawnDelay: 2800, slicePeakFraction: 0.85, sliceAirtimeMin: 7.0, sliceAirtimeMax: 7.5, targetInterval: 16000,
-               raceQuestionTime: 15000, raceStepBase: 15, raceDuration: 999999999, startLives: 99 }
+               raceQuestionTime: 15000, raceStepBase: 15, raceDuration: 999999999, startLives: 99,
+               katTargetCount: 3, katTargetInterval: 18000, katGravityFactor: 0.65, katPowerScale: 2.8, katMaxPowerFactor: 1.55 }
   };
+  // katGravityFactor/katMaxPowerFactor sind relativ zur tatsächlichen Spielfeldhöhe
+  // ("Feldhöhen pro Sekunde²" bzw. "Feldhöhen pro Sekunde") - dadurch fühlt sich
+  // der Wurf auf jedem Bildschirm (Handy, Tablet, Desktop) gleich an, statt auf
+  // kleinen Bildschirmen viel zu nervös/schnell zu wirken.
 
   /* ---------------- STATE ---------------- */
   let gameMode = 'faenger';
@@ -1955,6 +2086,20 @@ const WORDS = [
   const RACE_LAP_LENGTH = 100; // Distanz-Einheiten pro "Runde" (intern, nicht in Metern)
   const RACE_RIG_MIN = 6;      // Position (in %) des Gespanns bei Rundenbeginn
   const RACE_RIG_MAX = 68;     // Position (in %) des Gespanns kurz vor Rundenende
+
+  // Katapult-Modus
+  let katRunning = false;
+  let katTargets = [];      // { id, el, x, y, w, h, cases, resolved }
+  let katProjectile = null; // { x, y, vx, vy } oder null
+  let katTargetCaseId = 'nom';
+  let katTargetTimer = null;
+  let katRafId = null;
+  let katLastFrame = 0;
+  let katTabletSeq = 0;
+  let katAiming = false;
+  let katAimStart = null;
+  let katAimCurrent = null;
+  let katCtx = null;
 
   const els = {};
   function q(id){ return document.getElementById(id); }
@@ -2048,18 +2193,21 @@ const WORDS = [
   }
 
   function updateModeHint(){
-    // Bestleistung auf allen drei Modus-Karten anzeigen, passend zum gewählten Schwierigkeitsgrad.
+    // Bestleistung auf allen Modus-Karten anzeigen, passend zum gewählten Schwierigkeitsgrad.
     const faengerBest = getScoreBest('faenger', difficulty);
     const sliceBest = getScoreBest('slice', difficulty);
     const raceBest = getRaceBest(difficulty);
+    const katBest = getScoreBest('katapult', difficulty);
 
     const faengerNote = q('mode-select').querySelector('.mode-card[data-mode="faenger"] .mode-card-note');
     const sliceNote = q('mode-select').querySelector('.mode-card[data-mode="slice"] .mode-card-note');
     const raceNote = q('mode-select').querySelector('.mode-card[data-mode="rennen"] .mode-card-note');
+    const katNote = q('mode-select').querySelector('.mode-card[data-mode="katapult"] .mode-card-note');
 
     if(faengerNote) faengerNote.textContent = faengerBest > 0 ? 'Bestleistung: ' + faengerBest + ' Punkte' : '';
     if(sliceNote) sliceNote.textContent = sliceBest > 0 ? 'Bestleistung: ' + sliceBest + ' Punkte' : '';
     if(raceNote) raceNote.textContent = raceBest > 0 ? 'Bestleistung: ' + raceBest + (raceBest === 1 ? ' Runde' : ' Runden') : '';
+    if(katNote) katNote.textContent = katBest > 0 ? 'Bestleistung: ' + katBest + ' Punkte' : '';
 
     updateSettingsSummary();
   }
@@ -2252,11 +2400,14 @@ const WORDS = [
 
     const isSlice = gameMode === 'slice';
     const isRennen = gameMode === 'rennen';
-    q('arena-faenger').classList.toggle('hidden', isSlice || isRennen);
+    const isKatapult = gameMode === 'katapult';
+    q('arena-faenger').classList.toggle('hidden', isSlice || isRennen || isKatapult);
     q('arena-slice').classList.toggle('hidden', !isSlice);
     q('arena-rennen').classList.toggle('hidden', !isRennen);
+    q('arena-katapult').classList.toggle('hidden', !isKatapult);
     q('slice-target-bar').classList.toggle('hidden', !isSlice);
     q('race-timer-bar').classList.toggle('hidden', !isRennen || difficulty === 'uebung');
+    q('katapult-target-bar').classList.toggle('hidden', !isKatapult);
     q('lives-block').classList.toggle('hidden', difficulty === 'uebung');
     q('score-label').textContent = isRennen ? 'Runde' : 'Punkte';
 
@@ -2266,6 +2417,9 @@ const WORDS = [
     } else if(isRennen){
       q('target-hint').innerHTML = 'Tippe die richtige Amphore an, bevor die Zeit für diese Form abläuft';
       startRennenGame();
+    } else if(isKatapult){
+      q('target-hint').innerHTML = 'Ziehe irgendwo im Feld und lass los, um den Stein Richtung Ziel zu werfen';
+      startKatapultGame();
     } else {
       q('target-hint').innerHTML = 'Wagen lenken: <kbd>←</kbd> <kbd>→</kbd> oder Amphore anklicken';
       startFaengerGame();
@@ -2276,6 +2430,7 @@ const WORDS = [
     running = false;
     sliceRunning = false;
     raceRunning = false;
+    katRunning = false;
     clearTimeout(spawnTimer);
     clearTimeout(sliceSpawnTimer);
     clearTimeout(targetTimer);
@@ -2283,7 +2438,9 @@ const WORDS = [
     guaranteedSpawnTimers = [];
     clearTimeout(raceQuestionTimer);
     clearInterval(raceIntervalTimer);
+    clearTimeout(katTargetTimer);
     if(sliceRafId) cancelAnimationFrame(sliceRafId);
+    if(katRafId) cancelAnimationFrame(katRafId);
     q('game-screen').classList.remove('active');
     q('gameover-screen').classList.remove('hidden');
 
@@ -2318,6 +2475,9 @@ const WORDS = [
       if(manualQuit){
         q('gameover-eyebrow').textContent = 'Casus Interruptus';
         q('gameover-title').textContent = 'Spiel abgebrochen';
+      } else if(gameMode === 'katapult'){
+        q('gameover-eyebrow').textContent = 'Munitio Consumpta';
+        q('gameover-title').textContent = 'Die Ziele haben gewonnen!';
       } else {
         q('gameover-eyebrow').textContent = 'Tabulae Fractae';
         q('gameover-title').textContent = 'Die Tafeln sind zerbrochen';
@@ -2705,6 +2865,9 @@ const WORDS = [
     const field = q('slice-field');
     lastPointerPos = getFieldPoint(e, field);
     trailPoints.push({ x:lastPointerPos.x, y:lastPointerPos.y, t: performance.now() });
+    // Pointer-Capture: verhindert abgerissene Wisch-Gesten, wenn der Finger
+    // beim Wischen ueber den Rand des Spielfelds hinauswandert.
+    try{ field.setPointerCapture(e.pointerId); }catch(err){ /* z.B. Maus ohne Capture-Support */ }
     e.preventDefault();
   }
 
@@ -2942,6 +3105,284 @@ const WORDS = [
     }, 420);
   }
 
+  /* ---------------- KATAPULT-MODUS ---------------- */
+  const KAT_SLOTS = {
+    3: [{x:30,y:25},{x:58,y:42},{x:82,y:22}],
+    4: [{x:22,y:22},{x:46,y:40},{x:68,y:20},{x:88,y:42}],
+    5: [{x:18,y:20},{x:36,y:40},{x:54,y:18},{x:72,y:38},{x:90,y:22}]
+  };
+
+  function startKatapultGame(){
+    katTargets.forEach(t=>{ if(t) t.el.remove(); });
+    katTargets = [];
+    if(katProjectile){ katProjectile.el.remove(); katProjectile = null; }
+    katAiming = false; katAimStart = null; katAimCurrent = null;
+
+    const field = q('katapult-field');
+    const canvas = q('katapult-canvas');
+    canvas.width = field.clientWidth;
+    canvas.height = field.clientHeight;
+    katCtx = canvas.getContext('2d');
+
+    katTargetCaseId = randomTargetCase(null);
+    updateKatapultTargetDisplay();
+    resetKatapultTargetProgress(currentDiff.katTargetInterval);
+
+    const count = currentDiff.katTargetCount;
+    for(let i=0; i<count; i++){
+      spawnKatapultTarget(i);
+    }
+    ensureKatapultGuarantee();
+
+    katRunning = true;
+    katLastFrame = performance.now();
+    katRafId = requestAnimationFrame(katapultLoop);
+    scheduleKatapultTargetRotation();
+  }
+
+  function spawnKatapultTarget(slotIndex){
+    const pool = currentWordPool();
+    const entry = pool[Math.floor(Math.random() * pool.length)];
+    const field = q('katapult-field');
+    const fw = field.clientWidth, fh = field.clientHeight;
+    const count = currentDiff.katTargetCount;
+    const slot = (KAT_SLOTS[count] || KAT_SLOTS[4])[slotIndex];
+
+    const el = document.createElement('div');
+    el.className = 'katapult-target';
+    el.textContent = entry.form;
+    el.title = entry.meaning;
+    el.style.left = (fw * slot.x/100) + 'px';
+    el.style.top = (fh * slot.y/100) + 'px';
+    field.appendChild(el);
+
+    const t = {
+      id: katTabletSeq++, el,
+      x: fw * slot.x/100, y: fh * slot.y/100,
+      w: el.offsetWidth || 90, h: el.offsetHeight || 40,
+      form: entry.form, meaning: entry.meaning, cases: entry.cases,
+      slotIndex, resolved: false
+    };
+    katTargets[slotIndex] = t;
+    return t;
+  }
+
+  // Sorgt dafuer, dass unter den aktuell angezeigten Zielen immer mindestens
+  // eines zum aktuellen Ziel-Kasus passt - sonst waere kein Treffer moeglich.
+  function ensureKatapultGuarantee(){
+    const hasMatch = katTargets.some(t => t && !t.resolved && t.cases.includes(katTargetCaseId));
+    if(hasMatch) return;
+    const active = katTargets.filter(t => t && !t.resolved);
+    if(!active.length) return;
+    const victim = active[Math.floor(Math.random() * active.length)];
+    const pool = currentWordPool().filter(w => w.cases.includes(katTargetCaseId));
+    if(!pool.length) return;
+    const entry = pool[Math.floor(Math.random() * pool.length)];
+    victim.form = entry.form; victim.meaning = entry.meaning; victim.cases = entry.cases;
+    victim.el.textContent = entry.form;
+    victim.el.title = entry.meaning;
+  }
+
+  function updateKatapultTargetDisplay(){
+    const c = CASES.find(c => c.id === katTargetCaseId);
+    const nameEl = q('katapult-target-name');
+    nameEl.textContent = c.name;
+    nameEl.style.color = CASE_COLOR[c.id];
+  }
+
+  function resetKatapultTargetProgress(duration){
+    const fill = q('katapult-target-fill');
+    if(fill._progressAnim){ fill._progressAnim.cancel(); }
+    fill.style.width = '100%';
+    fill._progressAnim = fill.animate(
+      [{ width: '100%' }, { width: '0%' }],
+      { duration: duration, easing: 'linear', fill: 'forwards' }
+    );
+  }
+
+  function scheduleKatapultTargetRotation(){
+    if(!katRunning) return;
+    katTargetTimer = setTimeout(()=>{
+      katTargetCaseId = randomTargetCase(katTargetCaseId);
+      updateKatapultTargetDisplay();
+      resetKatapultTargetProgress(currentDiff.katTargetInterval);
+      ensureKatapultGuarantee();
+      scheduleKatapultTargetRotation();
+    }, currentDiff.katTargetInterval);
+  }
+
+  function launchKatapultProjectile(vx, vy){
+    const field = q('katapult-field');
+    const fw = field.clientWidth, fh = field.clientHeight;
+    const el = document.createElement('div');
+    el.className = 'kat-projectile';
+    field.appendChild(el);
+    // Schwerkraft wird beim Abschuss anhand der aktuellen Feldgroesse fixiert,
+    // damit sie waehrend des Flugs konsistent bleibt (auch bei Resize/Drehung).
+    katProjectile = { el, x: fw*0.16, y: fh*0.78, vx, vy, gravity: currentDiff.katGravityFactor * fh };
+
+    const arm = q('kat-arm');
+    if(arm){
+      arm.classList.remove('fired'); void arm.offsetWidth; arm.classList.add('fired');
+      setTimeout(()=> arm.classList.remove('fired'), 220);
+    }
+  }
+
+  function resolveKatapultHit(t){
+    t.resolved = true;
+    const isCorrect = t.cases.indexOf(katTargetCaseId) !== -1;
+    const targetName = CASES.find(c => c.id === katTargetCaseId).name;
+
+    if(isCorrect){
+      streak++;
+      const mult = streakMultiplier(streak);
+      const bonus = Math.round(currentDiff.basePoints * mult);
+      score += bonus;
+      q('score').textContent = score;
+      showStreak();
+      const otherCases = t.cases.filter(c => c !== katTargetCaseId).map(id => CASES.find(c=>c.id===id).name);
+      const multNote = mult > 1 ? ('×' + mult.toFixed(2).replace(/\.?0+$/,'') + (otherCases.length ? '  ' : '')) : '';
+      const extra = multNote + (otherCases.length ? 'auch: ' + otherCases.join(' / ') : '');
+      spawnFloater('katapult-field', '+' + bonus, extra, t.x, t.y - 20, true);
+      t.el.classList.add('correct');
+    } else {
+      streak = 0;
+      q('streak').classList.remove('show');
+      const correctNames = t.cases.map(id => CASES.find(c=>c.id===id).name).join(' / ');
+      spawnFloater('katapult-field', 'nicht ' + targetName, '(richtig: ' + correctNames + ')', t.x, t.y - 20, false);
+      t.el.classList.add('wrong');
+      recordMistake(t.form, t.meaning, t.cases);
+      lives--;
+      updateLives();
+      if(lives <= 0){
+        setTimeout(()=> endGame(), 420);
+        return;
+      }
+    }
+
+    setTimeout(()=>{
+      t.el.remove();
+      if(katRunning){
+        spawnKatapultTarget(t.slotIndex);
+        ensureKatapultGuarantee();
+      }
+    }, 380);
+  }
+
+  function katapultLoop(now){
+    if(!katRunning) return;
+    const dt = Math.min(64, now - katLastFrame) / 1000;
+    katLastFrame = now;
+
+    const field = q('katapult-field');
+    const fw = field.clientWidth, fh = field.clientHeight;
+
+    if(katProjectile){
+      const p = katProjectile;
+      p.vy += p.gravity * dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.el.style.transform = 'translate(' + (p.x-8) + 'px,' + (p.y-8) + 'px)';
+
+      let hit = null;
+      for(let i=0; i<katTargets.length; i++){
+        const t = katTargets[i];
+        if(!t || t.resolved) continue;
+        if(pointInRect({x:p.x, y:p.y}, t.x - t.w/2, t.y - t.h/2, t.w, t.h)){
+          hit = t; break;
+        }
+      }
+      if(hit){
+        resolveKatapultHit(hit);
+        p.el.remove();
+        katProjectile = null;
+      } else if(p.y > fh+60 || p.x < -60 || p.x > fw+60 || p.y < -fh*0.8){
+        p.el.remove();
+        katProjectile = null;
+      }
+    }
+
+    if(katAiming) drawKatAimPreview();
+
+    katRafId = requestAnimationFrame(katapultLoop);
+  }
+
+  function drawKatAimPreview(){
+    if(!katCtx || !katAimStart || !katAimCurrent) return;
+    const canvas = katCtx.canvas;
+    katCtx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const field = q('katapult-field');
+    const fw = field.clientWidth, fh = field.clientHeight;
+    const maxPower = currentDiff.katMaxPowerFactor * fh;
+    const gravity = currentDiff.katGravityFactor * fh;
+
+    const dx = katAimCurrent.x - katAimStart.x;
+    const dy = katAimCurrent.y - katAimStart.y;
+    let vx = dx * currentDiff.katPowerScale;
+    let vy = dy * currentDiff.katPowerScale;
+    const mag = Math.sqrt(vx*vx + vy*vy);
+    if(mag > maxPower){
+      const s = maxPower / mag;
+      vx *= s; vy *= s;
+    }
+
+    let px = fw*0.16, py = fh*0.78;
+    let pvx = vx, pvy = vy;
+    const dt = 0.05;
+    katCtx.fillStyle = 'rgba(230,191,106,.8)';
+    for(let i=0; i<24; i++){
+      pvy += gravity * dt;
+      px += pvx * dt; py += pvy * dt;
+      if(py > fh || px < 0 || px > fw) break;
+      katCtx.beginPath();
+      katCtx.arc(px, py, 3.2, 0, Math.PI*2);
+      katCtx.fill();
+    }
+  }
+
+  function onKatPointerDown(e){
+    if(gameMode !== 'katapult' || !katRunning || katProjectile) return;
+    katAiming = true;
+    const field = q('katapult-field');
+    katAimStart = getFieldPoint(e, field);
+    katAimCurrent = katAimStart;
+    // Pointer-Capture: sorgt dafuer, dass Zug-Events auch dann noch beim
+    // Spielfeld ankommen, wenn der Finger beim steilen Nach-oben-Ziehen
+    // ueber den Rand des Feldes hinaus wandert (z.B. auf die Ziel-Leiste).
+    try{ field.setPointerCapture(e.pointerId); }catch(err){ /* z.B. Maus ohne Capture-Support */ }
+    e.preventDefault();
+  }
+
+  function onKatPointerMove(e){
+    if(!katAiming) return;
+    const field = q('katapult-field');
+    katAimCurrent = getFieldPoint(e, field);
+    e.preventDefault();
+  }
+
+  function onKatPointerUp(){
+    if(!katAiming) return;
+    katAiming = false;
+    const dx = katAimCurrent.x - katAimStart.x;
+    const dy = katAimCurrent.y - katAimStart.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    if(dist > 18){
+      const field = q('katapult-field');
+      const maxPower = currentDiff.katMaxPowerFactor * field.clientHeight;
+      let vx = dx * currentDiff.katPowerScale;
+      let vy = dy * currentDiff.katPowerScale;
+      const mag = Math.sqrt(vx*vx + vy*vy);
+      if(mag > maxPower){
+        const s = maxPower / mag;
+        vx *= s; vy *= s;
+      }
+      launchKatapultProjectile(vx, vy);
+    }
+    katAimStart = null; katAimCurrent = null;
+    if(katCtx) katCtx.clearRect(0, 0, katCtx.canvas.width, katCtx.canvas.height);
+  }
+
   /* ---------------- INPUT ---------------- */
   document.addEventListener('keydown', (e)=>{
     if(!running) return;
@@ -3015,12 +3456,23 @@ const WORDS = [
   window.addEventListener('pointerup', onSlicePointerUp);
   window.addEventListener('pointercancel', onSlicePointerUp);
 
+  const katField = q('katapult-field');
+  katField.addEventListener('pointerdown', onKatPointerDown);
+  katField.addEventListener('pointermove', onKatPointerMove);
+  window.addEventListener('pointerup', onKatPointerUp);
+  window.addEventListener('pointercancel', onKatPointerUp);
+
   window.addEventListener('resize', ()=>{
     updateCartPosition();
     if(sliceCtx){
       const field = q('slice-field');
       sliceCtx.canvas.width = field.clientWidth;
       sliceCtx.canvas.height = field.clientHeight;
+    }
+    if(katCtx){
+      const field = q('katapult-field');
+      katCtx.canvas.width = field.clientWidth;
+      katCtx.canvas.height = field.clientHeight;
     }
   });
 
