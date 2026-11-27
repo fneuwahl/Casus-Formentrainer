@@ -1210,9 +1210,9 @@
         <div class="settings-row">
           <span class="settings-row-label">Numerus</span>
           <div class="group-select" id="num-select">
-            <button class="group-btn active" data-num="sg">Singular</button>
+            <button class="group-btn" data-num="sg">Singular</button>
             <button class="group-btn" data-num="pl">Plural</button>
-            <button class="group-btn" data-num="mixed">Singular/Plural gemischt</button>
+            <button class="group-btn active" data-num="mixed">Singular/Plural gemischt</button>
           </div>
           <p class="filter-label" id="num-hint" style="margin:2px 0 0 0;font-style:italic;"></p>
         </div>
@@ -2259,7 +2259,7 @@ const WORDS = [
   const MAX_LESSON = 12;
   let lektMin = 1, lektMax = MAX_LESSON;
   let activeDecls = new Set(['1','2m','2n','3']);
-  let activeNum = 'sg';
+  let activeNum = 'mixed';
   let difficulty = 'mittel';
   let currentDiff = DIFFICULTIES.mittel;
   let score = 0, lives = 3, streak = 0;
