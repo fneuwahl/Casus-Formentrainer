@@ -781,21 +781,40 @@
   }
   #katapult-base{
     position:absolute;
-    left:2%;
-    bottom:4%;
-    width:clamp(90px,16vw,150px);
+    left:50%;
+    bottom:3%;
+    width:clamp(100px,22vw,170px);
+    transform:translateX(-50%);
     z-index:4;
+    pointer-events:none;
   }
-  .kat-svg{ width:100%; height:auto; overflow:visible; }
-  .kat-leg{ fill:#6b4a2e; stroke:#3a2a1c; stroke-width:2; }
-  .kat-crossbar{ stroke:#3a2a1c; stroke-width:6; stroke-linecap:round; }
-  .kat-arm{
-    stroke:#8a6a3e; stroke-width:7; stroke-linecap:round;
-    transform-origin:42px 64px;
-    transition:transform .18s cubic-bezier(.3,1.6,.4,1);
+  .kat-svg{ width:100%; height:auto; overflow:visible; display:block; }
+  .kat-foot{ fill:#6b4a2e; stroke:#3a2a1c; stroke-width:2; stroke-linejoin:round; }
+  .kat-frame-outline{ fill:none; stroke:#3a2a1c; stroke-width:12; stroke-linecap:round; stroke-linejoin:round; }
+  .kat-frame{ fill:none; stroke:#9a7a4a; stroke-width:7; stroke-linecap:round; stroke-linejoin:round; }
+  .kat-band-rest{ fill:none; stroke:#5a3a22; stroke-width:3.5; stroke-linecap:round; stroke-linejoin:round; transition:opacity .12s; }
+  .kat-stone{ fill:#5a5248; stroke:#2e2a24; stroke-width:1.5; transition:opacity .12s; }
+  /* beim Ziehen/Fliegen wird Stein bzw. Band auf dem Canvas bzw. als Projektil gezeichnet */
+  #katapult-base.aiming .kat-band-rest,
+  #katapult-base.aiming .kat-stone,
+  #katapult-base.flying .kat-stone{ opacity:0; }
+
+  #katapult-hint{
+    position:absolute;
+    left:50%;
+    top:66%;
+    transform:translateX(-50%);
+    z-index:2;
+    max-width:90%;
+    text-align:center;
+    font-family:'EB Garamond',serif;
+    font-style:italic;
+    font-size:15px;
+    color:var(--text-secondary);
+    pointer-events:none;
+    transition:opacity .4s ease;
   }
-  .kat-arm.fired{ transform:rotate(55deg); }
-  .kat-stone{ fill:#5a5248; stroke:#2e2a24; stroke-width:1.5; }
+  #katapult-hint.gone{ opacity:0; }
 
   .katapult-target{
     position:absolute;
@@ -821,6 +840,7 @@
 
   .kat-projectile{
     position:absolute;
+    top:0; left:0;
     width:16px;
     height:16px;
     border-radius:50%;
@@ -1168,7 +1188,7 @@
       <button class="mode-card" data-mode="katapult" type="button">
         <svg class="mode-icon" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"><circle cx="50" cy="50" r="34" stroke-width="6"/><circle cx="50" cy="50" r="18" stroke-width="6"/><circle cx="50" cy="50" r="4" fill="currentColor" stroke="none"/><path d="M8,50 L26,50 M74,50 L92,50 M50,8 L50,26 M50,74 L50,92"/></svg>
         <span class="mode-card-title">Katapult</span>
-        <span class="mode-card-desc">Ziehe den Stein in Richtung des Ziels, das zum Ziel&#8209;Kasus passt, und lass los.</span>
+        <span class="mode-card-desc">Ziehe den Stein wie bei einer Schleuder nach hinten und lass los &ndash; je weiter, desto kräftiger der Wurf auf das passende Ziel.</span>
         <span class="mode-card-note"></span>
       </button>
     </div>
@@ -1319,14 +1339,15 @@
       <div id="katapult-field">
         <canvas id="katapult-canvas"></canvas>
         <div id="katapult-base">
-          <svg viewBox="0 0 140 100" class="kat-svg">
-            <path d="M10,95 L40,28 L50,28 L30,95 Z" class="kat-leg"/>
-            <path d="M130,95 L90,28 L80,28 L110,95 Z" class="kat-leg"/>
-            <path d="M18,64 L122,64" class="kat-crossbar"/>
-            <path d="M42,64 L98,18" class="kat-arm" id="kat-arm"/>
-            <circle cx="98" cy="18" r="9" class="kat-stone" id="kat-stone-rest"/>
+          <svg viewBox="0 0 140 110" class="kat-svg">
+            <path d="M16,106 L124,106 L112,92 L28,92 Z" class="kat-foot"/>
+            <path d="M70,94 L70,62 M70,62 L38,14 M70,62 L102,14" class="kat-frame-outline"/>
+            <path d="M70,94 L70,62 M70,62 L38,14 M70,62 L102,14" class="kat-frame"/>
+            <path d="M38,14 L70,28 L102,14" class="kat-band-rest"/>
+            <circle cx="70" cy="28" r="9" class="kat-stone"/>
           </svg>
         </div>
+        <div id="katapult-hint">⬇ Wie bei einer Schleuder: Stein nach hinten ziehen und loslassen</div>
       </div>
     </div>
   </div>
@@ -1365,8 +1386,8 @@
   ];
   const CASE_COLOR = { nom:'#C9A24B', gen:'#7C8B6F', dat:'#6E8FA0', akk:'#B5563C', abl:'#8C6E9B' };
 
-  // Wortschatz: Prima Nova, Lektion 1-9 (alle Substantive, Singular UND
-  // Plural), automatisch aus den Stammformen dekliniert. Wo zwei Kasus
+  // Wortschatz: Prima Nova, Lektion 1–12 (alle Substantive, Singular UND
+  // Plural), aus den Stammformen dekliniert. Wo zwei Kasus
   // im Lateinischen dieselbe Form haben (Synkretismus), stehen beide im
   // "cases"-Array - beide Antworten zaehlen dann als richtig. Reine
   // Pluraliatantum (thermae, arma, aedes, liberi, maiores) tauchen nur
@@ -2001,7 +2022,202 @@ const WORDS = [
     { form:'itineribus', cases:['dat','abl'], lekt:9, decl:'3', word:'iter', meaning:'Reise, Weg, Marsch', num:'pl' },
     { form:'maiores', cases:['nom','akk'], lekt:9, decl:'3', word:'maiores', meaning:'Vorfahren', num:'pl' },
     { form:'maiorum', cases:['gen'], lekt:9, decl:'3', word:'maiores', meaning:'Vorfahren', num:'pl' },
-    { form:'maioribus', cases:['dat','abl'], lekt:9, decl:'3', word:'maiores', meaning:'Vorfahren', num:'pl' }
+    { form:'maioribus', cases:['dat','abl'], lekt:9, decl:'3', word:'maiores', meaning:'Vorfahren', num:'pl' },
+    { form:'multitudo', cases:['nom'], lekt:10, decl:'3', word:'multitudo', meaning:'große Zahl, Menge', num:'sg' },
+    { form:'multitudinis', cases:['gen'], lekt:10, decl:'3', word:'multitudo', meaning:'große Zahl, Menge', num:'sg' },
+    { form:'multitudini', cases:['dat'], lekt:10, decl:'3', word:'multitudo', meaning:'große Zahl, Menge', num:'sg' },
+    { form:'multitudinem', cases:['akk'], lekt:10, decl:'3', word:'multitudo', meaning:'große Zahl, Menge', num:'sg' },
+    { form:'multitudine', cases:['abl'], lekt:10, decl:'3', word:'multitudo', meaning:'große Zahl, Menge', num:'sg' },
+    { form:'multitudines', cases:['nom','akk'], lekt:10, decl:'3', word:'multitudo', meaning:'große Zahl, Menge', num:'pl' },
+    { form:'multitudinum', cases:['gen'], lekt:10, decl:'3', word:'multitudo', meaning:'große Zahl, Menge', num:'pl' },
+    { form:'multitudinibus', cases:['dat','abl'], lekt:10, decl:'3', word:'multitudo', meaning:'große Zahl, Menge', num:'pl' },
+    { form:'homo', cases:['nom'], lekt:10, decl:'3', word:'homo', meaning:'Mensch', num:'sg' },
+    { form:'hominis', cases:['gen'], lekt:10, decl:'3', word:'homo', meaning:'Mensch', num:'sg' },
+    { form:'homini', cases:['dat'], lekt:10, decl:'3', word:'homo', meaning:'Mensch', num:'sg' },
+    { form:'hominem', cases:['akk'], lekt:10, decl:'3', word:'homo', meaning:'Mensch', num:'sg' },
+    { form:'homine', cases:['abl'], lekt:10, decl:'3', word:'homo', meaning:'Mensch', num:'sg' },
+    { form:'homines', cases:['nom','akk'], lekt:10, decl:'3', word:'homo', meaning:'Mensch', num:'pl' },
+    { form:'hominum', cases:['gen'], lekt:10, decl:'3', word:'homo', meaning:'Mensch', num:'pl' },
+    { form:'hominibus', cases:['dat','abl'], lekt:10, decl:'3', word:'homo', meaning:'Mensch', num:'pl' },
+    { form:'liber', cases:['nom'], lekt:10, decl:'2m', word:'liber', meaning:'Buch', num:'sg' },
+    { form:'libri', cases:['gen'], lekt:10, decl:'2m', word:'liber', meaning:'Buch', num:'sg' },
+    { form:'libro', cases:['dat','abl'], lekt:10, decl:'2m', word:'liber', meaning:'Buch', num:'sg' },
+    { form:'librum', cases:['akk'], lekt:10, decl:'2m', word:'liber', meaning:'Buch', num:'sg' },
+    { form:'libri', cases:['nom'], lekt:10, decl:'2m', word:'liber', meaning:'Buch', num:'pl' },
+    { form:'librorum', cases:['gen'], lekt:10, decl:'2m', word:'liber', meaning:'Buch', num:'pl' },
+    { form:'libris', cases:['dat','abl'], lekt:10, decl:'2m', word:'liber', meaning:'Buch', num:'pl' },
+    { form:'libros', cases:['akk'], lekt:10, decl:'2m', word:'liber', meaning:'Buch', num:'pl' },
+    { form:'poeta', cases:['nom','abl'], lekt:10, decl:'1', word:'poeta', meaning:'Dichter', num:'sg' },
+    { form:'poetae', cases:['gen','dat'], lekt:10, decl:'1', word:'poeta', meaning:'Dichter', num:'sg' },
+    { form:'poetam', cases:['akk'], lekt:10, decl:'1', word:'poeta', meaning:'Dichter', num:'sg' },
+    { form:'poetae', cases:['nom'], lekt:10, decl:'1', word:'poeta', meaning:'Dichter', num:'pl' },
+    { form:'poetarum', cases:['gen'], lekt:10, decl:'1', word:'poeta', meaning:'Dichter', num:'pl' },
+    { form:'poetis', cases:['dat','abl'], lekt:10, decl:'1', word:'poeta', meaning:'Dichter', num:'pl' },
+    { form:'poetas', cases:['akk'], lekt:10, decl:'1', word:'poeta', meaning:'Dichter', num:'pl' },
+    { form:'comes', cases:['nom'], lekt:10, decl:'3', word:'comes', meaning:'Gefährte, Begleiter(in)', num:'sg' },
+    { form:'comitis', cases:['gen'], lekt:10, decl:'3', word:'comes', meaning:'Gefährte, Begleiter(in)', num:'sg' },
+    { form:'comiti', cases:['dat'], lekt:10, decl:'3', word:'comes', meaning:'Gefährte, Begleiter(in)', num:'sg' },
+    { form:'comitem', cases:['akk'], lekt:10, decl:'3', word:'comes', meaning:'Gefährte, Begleiter(in)', num:'sg' },
+    { form:'comite', cases:['abl'], lekt:10, decl:'3', word:'comes', meaning:'Gefährte, Begleiter(in)', num:'sg' },
+    { form:'comites', cases:['nom','akk'], lekt:10, decl:'3', word:'comes', meaning:'Gefährte, Begleiter(in)', num:'pl' },
+    { form:'comitum', cases:['gen'], lekt:10, decl:'3', word:'comes', meaning:'Gefährte, Begleiter(in)', num:'pl' },
+    { form:'comitibus', cases:['dat','abl'], lekt:10, decl:'3', word:'comes', meaning:'Gefährte, Begleiter(in)', num:'pl' },
+    { form:'sinistra', cases:['nom','abl'], lekt:10, decl:'1', word:'sinistra', meaning:'linke Hand', num:'sg' },
+    { form:'sinistrae', cases:['gen','dat'], lekt:10, decl:'1', word:'sinistra', meaning:'linke Hand', num:'sg' },
+    { form:'sinistram', cases:['akk'], lekt:10, decl:'1', word:'sinistra', meaning:'linke Hand', num:'sg' },
+    { form:'sinistrae', cases:['nom'], lekt:10, decl:'1', word:'sinistra', meaning:'linke Hand', num:'pl' },
+    { form:'sinistrarum', cases:['gen'], lekt:10, decl:'1', word:'sinistra', meaning:'linke Hand', num:'pl' },
+    { form:'sinistris', cases:['dat','abl'], lekt:10, decl:'1', word:'sinistra', meaning:'linke Hand', num:'pl' },
+    { form:'sinistras', cases:['akk'], lekt:10, decl:'1', word:'sinistra', meaning:'linke Hand', num:'pl' },
+    { form:'carmen', cases:['nom','akk'], lekt:10, decl:'3', word:'carmen', meaning:'Lied, Gedicht', num:'sg' },
+    { form:'carminis', cases:['gen'], lekt:10, decl:'3', word:'carmen', meaning:'Lied, Gedicht', num:'sg' },
+    { form:'carmini', cases:['dat'], lekt:10, decl:'3', word:'carmen', meaning:'Lied, Gedicht', num:'sg' },
+    { form:'carmine', cases:['abl'], lekt:10, decl:'3', word:'carmen', meaning:'Lied, Gedicht', num:'sg' },
+    { form:'carmina', cases:['nom','akk'], lekt:10, decl:'3', word:'carmen', meaning:'Lied, Gedicht', num:'pl' },
+    { form:'carminum', cases:['gen'], lekt:10, decl:'3', word:'carmen', meaning:'Lied, Gedicht', num:'pl' },
+    { form:'carminibus', cases:['dat','abl'], lekt:10, decl:'3', word:'carmen', meaning:'Lied, Gedicht', num:'pl' },
+    { form:'urbs', cases:['nom'], lekt:10, decl:'3', word:'urbs', meaning:'Stadt, Hauptstadt', num:'sg' },
+    { form:'urbis', cases:['gen'], lekt:10, decl:'3', word:'urbs', meaning:'Stadt, Hauptstadt', num:'sg' },
+    { form:'urbi', cases:['dat'], lekt:10, decl:'3', word:'urbs', meaning:'Stadt, Hauptstadt', num:'sg' },
+    { form:'urbem', cases:['akk'], lekt:10, decl:'3', word:'urbs', meaning:'Stadt, Hauptstadt', num:'sg' },
+    { form:'urbe', cases:['abl'], lekt:10, decl:'3', word:'urbs', meaning:'Stadt, Hauptstadt', num:'sg' },
+    { form:'urbes', cases:['nom','akk'], lekt:10, decl:'3', word:'urbs', meaning:'Stadt, Hauptstadt', num:'pl' },
+    { form:'urbium', cases:['gen'], lekt:10, decl:'3', word:'urbs', meaning:'Stadt, Hauptstadt', num:'pl' },
+    { form:'urbibus', cases:['dat','abl'], lekt:10, decl:'3', word:'urbs', meaning:'Stadt, Hauptstadt', num:'pl' },
+    { form:'provincia', cases:['nom','abl'], lekt:10, decl:'1', word:'provincia', meaning:'Provinz', num:'sg' },
+    { form:'provinciae', cases:['gen','dat'], lekt:10, decl:'1', word:'provincia', meaning:'Provinz', num:'sg' },
+    { form:'provinciam', cases:['akk'], lekt:10, decl:'1', word:'provincia', meaning:'Provinz', num:'sg' },
+    { form:'provinciae', cases:['nom'], lekt:10, decl:'1', word:'provincia', meaning:'Provinz', num:'pl' },
+    { form:'provinciarum', cases:['gen'], lekt:10, decl:'1', word:'provincia', meaning:'Provinz', num:'pl' },
+    { form:'provinciis', cases:['dat','abl'], lekt:10, decl:'1', word:'provincia', meaning:'Provinz', num:'pl' },
+    { form:'provincias', cases:['akk'], lekt:10, decl:'1', word:'provincia', meaning:'Provinz', num:'pl' },
+    { form:'bellum', cases:['nom','akk'], lekt:10, decl:'2n', word:'bellum', meaning:'Krieg', num:'sg' },
+    { form:'belli', cases:['gen'], lekt:10, decl:'2n', word:'bellum', meaning:'Krieg', num:'sg' },
+    { form:'bello', cases:['dat','abl'], lekt:10, decl:'2n', word:'bellum', meaning:'Krieg', num:'sg' },
+    { form:'bella', cases:['nom','akk'], lekt:10, decl:'2n', word:'bellum', meaning:'Krieg', num:'pl' },
+    { form:'bellorum', cases:['gen'], lekt:10, decl:'2n', word:'bellum', meaning:'Krieg', num:'pl' },
+    { form:'bellis', cases:['dat','abl'], lekt:10, decl:'2n', word:'bellum', meaning:'Krieg', num:'pl' },
+    { form:'imperator', cases:['nom'], lekt:10, decl:'3', word:'imperator', meaning:'Befehlshaber, Feldherr, Kaiser', num:'sg' },
+    { form:'imperatoris', cases:['gen'], lekt:10, decl:'3', word:'imperator', meaning:'Befehlshaber, Feldherr, Kaiser', num:'sg' },
+    { form:'imperatori', cases:['dat'], lekt:10, decl:'3', word:'imperator', meaning:'Befehlshaber, Feldherr, Kaiser', num:'sg' },
+    { form:'imperatorem', cases:['akk'], lekt:10, decl:'3', word:'imperator', meaning:'Befehlshaber, Feldherr, Kaiser', num:'sg' },
+    { form:'imperatore', cases:['abl'], lekt:10, decl:'3', word:'imperator', meaning:'Befehlshaber, Feldherr, Kaiser', num:'sg' },
+    { form:'imperatores', cases:['nom','akk'], lekt:10, decl:'3', word:'imperator', meaning:'Befehlshaber, Feldherr, Kaiser', num:'pl' },
+    { form:'imperatorum', cases:['gen'], lekt:10, decl:'3', word:'imperator', meaning:'Befehlshaber, Feldherr, Kaiser', num:'pl' },
+    { form:'imperatoribus', cases:['dat','abl'], lekt:10, decl:'3', word:'imperator', meaning:'Befehlshaber, Feldherr, Kaiser', num:'pl' },
+    { form:'calamitas', cases:['nom'], lekt:11, decl:'3', word:'calamitas', meaning:'Unglück, Niederlage, Schaden', num:'sg' },
+    { form:'calamitatis', cases:['gen'], lekt:11, decl:'3', word:'calamitas', meaning:'Unglück, Niederlage, Schaden', num:'sg' },
+    { form:'calamitati', cases:['dat'], lekt:11, decl:'3', word:'calamitas', meaning:'Unglück, Niederlage, Schaden', num:'sg' },
+    { form:'calamitatem', cases:['akk'], lekt:11, decl:'3', word:'calamitas', meaning:'Unglück, Niederlage, Schaden', num:'sg' },
+    { form:'calamitate', cases:['abl'], lekt:11, decl:'3', word:'calamitas', meaning:'Unglück, Niederlage, Schaden', num:'sg' },
+    { form:'calamitates', cases:['nom','akk'], lekt:11, decl:'3', word:'calamitas', meaning:'Unglück, Niederlage, Schaden', num:'pl' },
+    { form:'calamitatum', cases:['gen'], lekt:11, decl:'3', word:'calamitas', meaning:'Unglück, Niederlage, Schaden', num:'pl' },
+    { form:'calamitatibus', cases:['dat','abl'], lekt:11, decl:'3', word:'calamitas', meaning:'Unglück, Niederlage, Schaden', num:'pl' },
+    { form:'maritus', cases:['nom'], lekt:11, decl:'2m', word:'maritus', meaning:'Ehemann', num:'sg' },
+    { form:'mariti', cases:['gen'], lekt:11, decl:'2m', word:'maritus', meaning:'Ehemann', num:'sg' },
+    { form:'marito', cases:['dat','abl'], lekt:11, decl:'2m', word:'maritus', meaning:'Ehemann', num:'sg' },
+    { form:'maritum', cases:['akk'], lekt:11, decl:'2m', word:'maritus', meaning:'Ehemann', num:'sg' },
+    { form:'mariti', cases:['nom'], lekt:11, decl:'2m', word:'maritus', meaning:'Ehemann', num:'pl' },
+    { form:'maritorum', cases:['gen'], lekt:11, decl:'2m', word:'maritus', meaning:'Ehemann', num:'pl' },
+    { form:'maritis', cases:['dat','abl'], lekt:11, decl:'2m', word:'maritus', meaning:'Ehemann', num:'pl' },
+    { form:'maritos', cases:['akk'], lekt:11, decl:'2m', word:'maritus', meaning:'Ehemann', num:'pl' },
+    { form:'vir', cases:['nom'], lekt:11, decl:'2m', word:'vir', meaning:'Mann', num:'sg' },
+    { form:'viri', cases:['gen'], lekt:11, decl:'2m', word:'vir', meaning:'Mann', num:'sg' },
+    { form:'viro', cases:['dat','abl'], lekt:11, decl:'2m', word:'vir', meaning:'Mann', num:'sg' },
+    { form:'virum', cases:['akk'], lekt:11, decl:'2m', word:'vir', meaning:'Mann', num:'sg' },
+    { form:'viri', cases:['nom'], lekt:11, decl:'2m', word:'vir', meaning:'Mann', num:'pl' },
+    { form:'virorum', cases:['gen'], lekt:11, decl:'2m', word:'vir', meaning:'Mann', num:'pl' },
+    { form:'viris', cases:['dat','abl'], lekt:11, decl:'2m', word:'vir', meaning:'Mann', num:'pl' },
+    { form:'viros', cases:['akk'], lekt:11, decl:'2m', word:'vir', meaning:'Mann', num:'pl' },
+    { form:'murus', cases:['nom'], lekt:11, decl:'2m', word:'murus', meaning:'Mauer', num:'sg' },
+    { form:'muri', cases:['gen'], lekt:11, decl:'2m', word:'murus', meaning:'Mauer', num:'sg' },
+    { form:'muro', cases:['dat','abl'], lekt:11, decl:'2m', word:'murus', meaning:'Mauer', num:'sg' },
+    { form:'murum', cases:['akk'], lekt:11, decl:'2m', word:'murus', meaning:'Mauer', num:'sg' },
+    { form:'muri', cases:['nom'], lekt:11, decl:'2m', word:'murus', meaning:'Mauer', num:'pl' },
+    { form:'murorum', cases:['gen'], lekt:11, decl:'2m', word:'murus', meaning:'Mauer', num:'pl' },
+    { form:'muris', cases:['dat','abl'], lekt:11, decl:'2m', word:'murus', meaning:'Mauer', num:'pl' },
+    { form:'muros', cases:['akk'], lekt:11, decl:'2m', word:'murus', meaning:'Mauer', num:'pl' },
+    { form:'hostis', cases:['nom','gen'], lekt:11, decl:'3', word:'hostis', meaning:'(Landes-)Feind', num:'sg' },
+    { form:'hosti', cases:['dat'], lekt:11, decl:'3', word:'hostis', meaning:'(Landes-)Feind', num:'sg' },
+    { form:'hostem', cases:['akk'], lekt:11, decl:'3', word:'hostis', meaning:'(Landes-)Feind', num:'sg' },
+    { form:'hoste', cases:['abl'], lekt:11, decl:'3', word:'hostis', meaning:'(Landes-)Feind', num:'sg' },
+    { form:'hostes', cases:['nom','akk'], lekt:11, decl:'3', word:'hostis', meaning:'(Landes-)Feind', num:'pl' },
+    { form:'hostium', cases:['gen'], lekt:11, decl:'3', word:'hostis', meaning:'(Landes-)Feind', num:'pl' },
+    { form:'hostibus', cases:['dat','abl'], lekt:11, decl:'3', word:'hostis', meaning:'(Landes-)Feind', num:'pl' },
+    { form:'ira', cases:['nom','abl'], lekt:11, decl:'1', word:'ira', meaning:'Zorn', num:'sg' },
+    { form:'irae', cases:['gen','dat'], lekt:11, decl:'1', word:'ira', meaning:'Zorn', num:'sg' },
+    { form:'iram', cases:['akk'], lekt:11, decl:'1', word:'ira', meaning:'Zorn', num:'sg' },
+    { form:'irae', cases:['nom'], lekt:11, decl:'1', word:'ira', meaning:'Zorn', num:'pl' },
+    { form:'irarum', cases:['gen'], lekt:11, decl:'1', word:'ira', meaning:'Zorn', num:'pl' },
+    { form:'iris', cases:['dat','abl'], lekt:11, decl:'1', word:'ira', meaning:'Zorn', num:'pl' },
+    { form:'iras', cases:['akk'], lekt:11, decl:'1', word:'ira', meaning:'Zorn', num:'pl' },
+    { form:'frater', cases:['nom'], lekt:11, decl:'3', word:'frater', meaning:'Bruder', num:'sg' },
+    { form:'fratris', cases:['gen'], lekt:11, decl:'3', word:'frater', meaning:'Bruder', num:'sg' },
+    { form:'fratri', cases:['dat'], lekt:11, decl:'3', word:'frater', meaning:'Bruder', num:'sg' },
+    { form:'fratrem', cases:['akk'], lekt:11, decl:'3', word:'frater', meaning:'Bruder', num:'sg' },
+    { form:'fratre', cases:['abl'], lekt:11, decl:'3', word:'frater', meaning:'Bruder', num:'sg' },
+    { form:'fratres', cases:['nom','akk'], lekt:11, decl:'3', word:'frater', meaning:'Bruder', num:'pl' },
+    { form:'fratrum', cases:['gen'], lekt:11, decl:'3', word:'frater', meaning:'Bruder', num:'pl' },
+    { form:'fratribus', cases:['dat','abl'], lekt:11, decl:'3', word:'frater', meaning:'Bruder', num:'pl' },
+    { form:'lacrima', cases:['nom','abl'], lekt:11, decl:'1', word:'lacrima', meaning:'Träne', num:'sg' },
+    { form:'lacrimae', cases:['gen','dat'], lekt:11, decl:'1', word:'lacrima', meaning:'Träne', num:'sg' },
+    { form:'lacrimam', cases:['akk'], lekt:11, decl:'1', word:'lacrima', meaning:'Träne', num:'sg' },
+    { form:'lacrimae', cases:['nom'], lekt:11, decl:'1', word:'lacrima', meaning:'Träne', num:'pl' },
+    { form:'lacrimarum', cases:['gen'], lekt:11, decl:'1', word:'lacrima', meaning:'Träne', num:'pl' },
+    { form:'lacrimis', cases:['dat','abl'], lekt:11, decl:'1', word:'lacrima', meaning:'Träne', num:'pl' },
+    { form:'lacrimas', cases:['akk'], lekt:11, decl:'1', word:'lacrima', meaning:'Träne', num:'pl' },
+    { form:'ripa', cases:['nom','abl'], lekt:11, decl:'1', word:'ripa', meaning:'Ufer', num:'sg' },
+    { form:'ripae', cases:['gen','dat'], lekt:11, decl:'1', word:'ripa', meaning:'Ufer', num:'sg' },
+    { form:'ripam', cases:['akk'], lekt:11, decl:'1', word:'ripa', meaning:'Ufer', num:'sg' },
+    { form:'ripae', cases:['nom'], lekt:11, decl:'1', word:'ripa', meaning:'Ufer', num:'pl' },
+    { form:'riparum', cases:['gen'], lekt:11, decl:'1', word:'ripa', meaning:'Ufer', num:'pl' },
+    { form:'ripis', cases:['dat','abl'], lekt:11, decl:'1', word:'ripa', meaning:'Ufer', num:'pl' },
+    { form:'ripas', cases:['akk'], lekt:11, decl:'1', word:'ripa', meaning:'Ufer', num:'pl' },
+    { form:'nex', cases:['nom'], lekt:11, decl:'3', word:'nex', meaning:'Mord, Tod', num:'sg' },
+    { form:'necis', cases:['gen'], lekt:11, decl:'3', word:'nex', meaning:'Mord, Tod', num:'sg' },
+    { form:'neci', cases:['dat'], lekt:11, decl:'3', word:'nex', meaning:'Mord, Tod', num:'sg' },
+    { form:'necem', cases:['akk'], lekt:11, decl:'3', word:'nex', meaning:'Mord, Tod', num:'sg' },
+    { form:'nece', cases:['abl'], lekt:11, decl:'3', word:'nex', meaning:'Mord, Tod', num:'sg' },
+    { form:'neces', cases:['nom','akk'], lekt:11, decl:'3', word:'nex', meaning:'Mord, Tod', num:'pl' },
+    { form:'necium', cases:['gen'], lekt:11, decl:'3', word:'nex', meaning:'Mord, Tod', num:'pl' },
+    { form:'necibus', cases:['dat','abl'], lekt:11, decl:'3', word:'nex', meaning:'Mord, Tod', num:'pl' },
+    { form:'pons', cases:['nom'], lekt:12, decl:'3', word:'pons', meaning:'Brücke', num:'sg' },
+    { form:'pontis', cases:['gen'], lekt:12, decl:'3', word:'pons', meaning:'Brücke', num:'sg' },
+    { form:'ponti', cases:['dat'], lekt:12, decl:'3', word:'pons', meaning:'Brücke', num:'sg' },
+    { form:'pontem', cases:['akk'], lekt:12, decl:'3', word:'pons', meaning:'Brücke', num:'sg' },
+    { form:'ponte', cases:['abl'], lekt:12, decl:'3', word:'pons', meaning:'Brücke', num:'sg' },
+    { form:'pontes', cases:['nom','akk'], lekt:12, decl:'3', word:'pons', meaning:'Brücke', num:'pl' },
+    { form:'pontium', cases:['gen'], lekt:12, decl:'3', word:'pons', meaning:'Brücke', num:'pl' },
+    { form:'pontibus', cases:['dat','abl'], lekt:12, decl:'3', word:'pons', meaning:'Brücke', num:'pl' },
+    { form:'munitio', cases:['nom'], lekt:12, decl:'3', word:'munitio', meaning:'Befestigung, Bau', num:'sg' },
+    { form:'munitionis', cases:['gen'], lekt:12, decl:'3', word:'munitio', meaning:'Befestigung, Bau', num:'sg' },
+    { form:'munitioni', cases:['dat'], lekt:12, decl:'3', word:'munitio', meaning:'Befestigung, Bau', num:'sg' },
+    { form:'munitionem', cases:['akk'], lekt:12, decl:'3', word:'munitio', meaning:'Befestigung, Bau', num:'sg' },
+    { form:'munitione', cases:['abl'], lekt:12, decl:'3', word:'munitio', meaning:'Befestigung, Bau', num:'sg' },
+    { form:'munitiones', cases:['nom','akk'], lekt:12, decl:'3', word:'munitio', meaning:'Befestigung, Bau', num:'pl' },
+    { form:'munitionum', cases:['gen'], lekt:12, decl:'3', word:'munitio', meaning:'Befestigung, Bau', num:'pl' },
+    { form:'munitionibus', cases:['dat','abl'], lekt:12, decl:'3', word:'munitio', meaning:'Befestigung, Bau', num:'pl' },
+    { form:'telum', cases:['nom','akk'], lekt:12, decl:'2n', word:'telum', meaning:'Geschoss, (Angriffs-)Waffe', num:'sg' },
+    { form:'teli', cases:['gen'], lekt:12, decl:'2n', word:'telum', meaning:'Geschoss, (Angriffs-)Waffe', num:'sg' },
+    { form:'telo', cases:['dat','abl'], lekt:12, decl:'2n', word:'telum', meaning:'Geschoss, (Angriffs-)Waffe', num:'sg' },
+    { form:'tela', cases:['nom','akk'], lekt:12, decl:'2n', word:'telum', meaning:'Geschoss, (Angriffs-)Waffe', num:'pl' },
+    { form:'telorum', cases:['gen'], lekt:12, decl:'2n', word:'telum', meaning:'Geschoss, (Angriffs-)Waffe', num:'pl' },
+    { form:'telis', cases:['dat','abl'], lekt:12, decl:'2n', word:'telum', meaning:'Geschoss, (Angriffs-)Waffe', num:'pl' },
+    { form:'fiducia', cases:['nom','abl'], lekt:12, decl:'1', word:'fiducia', meaning:'das Vertrauen', num:'sg' },
+    { form:'fiduciae', cases:['gen','dat'], lekt:12, decl:'1', word:'fiducia', meaning:'das Vertrauen', num:'sg' },
+    { form:'fiduciam', cases:['akk'], lekt:12, decl:'1', word:'fiducia', meaning:'das Vertrauen', num:'sg' },
+    { form:'fiduciae', cases:['nom'], lekt:12, decl:'1', word:'fiducia', meaning:'das Vertrauen', num:'pl' },
+    { form:'fiduciarum', cases:['gen'], lekt:12, decl:'1', word:'fiducia', meaning:'das Vertrauen', num:'pl' },
+    { form:'fiduciis', cases:['dat','abl'], lekt:12, decl:'1', word:'fiducia', meaning:'das Vertrauen', num:'pl' },
+    { form:'fiducias', cases:['akk'], lekt:12, decl:'1', word:'fiducia', meaning:'das Vertrauen', num:'pl' },
+    { form:'gladius', cases:['nom'], lekt:12, decl:'2m', word:'gladius', meaning:'Schwert', num:'sg' },
+    { form:'gladii', cases:['gen'], lekt:12, decl:'2m', word:'gladius', meaning:'Schwert', num:'sg' },
+    { form:'gladio', cases:['dat','abl'], lekt:12, decl:'2m', word:'gladius', meaning:'Schwert', num:'sg' },
+    { form:'gladium', cases:['akk'], lekt:12, decl:'2m', word:'gladius', meaning:'Schwert', num:'sg' },
+    { form:'gladii', cases:['nom'], lekt:12, decl:'2m', word:'gladius', meaning:'Schwert', num:'pl' },
+    { form:'gladiorum', cases:['gen'], lekt:12, decl:'2m', word:'gladius', meaning:'Schwert', num:'pl' },
+    { form:'gladiis', cases:['dat','abl'], lekt:12, decl:'2m', word:'gladius', meaning:'Schwert', num:'pl' },
+    { form:'gladios', cases:['akk'], lekt:12, decl:'2m', word:'gladius', meaning:'Schwert', num:'pl' }
   ];
 
   /* ---------------- SCHWIERIGKEITSGRADE ---------------- */
@@ -2018,20 +2234,21 @@ const WORDS = [
     leicht: { fallSpeed: 32,  spawnDelay: 3000, maxFallSpeed: 100, minSpawnDelay: 1500, basePoints: 8,
                sliceSpawnDelay: 2300, slicePeakFraction: 0.82, sliceAirtimeMin: 5.8, sliceAirtimeMax: 6.5, targetInterval: 10000,
                raceQuestionTime: 7500, raceStepBase: 15, raceDuration: 60000, startLives: 3,
-               katTargetCount: 3, katTargetInterval: 11000, katGravityFactor: 0.85, katPowerScale: 2.6, katMaxPowerFactor: 1.55 },
+               katTargetCount: 3, katTargetInterval: 11000, katGravityFactor: 0.80, katMaxPowerFactor: 1.80, katPreviewLen: 3 },
     mittel: { fallSpeed: 42,  spawnDelay: 2600, maxFallSpeed: 130, minSpawnDelay: 1150, basePoints: 10,
                sliceSpawnDelay: 1850, slicePeakFraction: 0.75, sliceAirtimeMin: 4.6, sliceAirtimeMax: 5.3, targetInterval: 8000,
                raceQuestionTime: 4500, raceStepBase: 20, raceDuration: 60000, startLives: 3,
-               katTargetCount: 4, katTargetInterval: 9000, katGravityFactor: 1.08, katPowerScale: 2.6, katMaxPowerFactor: 1.70 },
+               katTargetCount: 4, katTargetInterval: 9000, katGravityFactor: 1.00, katMaxPowerFactor: 1.80, katPreviewLen: 0.85 },
     schwer: { fallSpeed: 54,  spawnDelay: 2200, maxFallSpeed: 165, minSpawnDelay: 900,  basePoints: 12,
                sliceSpawnDelay: 1450, slicePeakFraction: 0.65, sliceAirtimeMin: 3.6, sliceAirtimeMax: 4.2, targetInterval: 6500,
                raceQuestionTime: 2800, raceStepBase: 25, raceDuration: 60000, startLives: 3,
-               katTargetCount: 5, katTargetInterval: 7000, katGravityFactor: 1.35, katPowerScale: 2.6, katMaxPowerFactor: 1.85 },
+               katTargetCount: 5, katTargetInterval: 7000, katGravityFactor: 1.25, katMaxPowerFactor: 1.90, katPreviewLen: 0.40 },
     uebung: { fallSpeed: 24,  spawnDelay: 3800, maxFallSpeed: 24,  minSpawnDelay: 3800, basePoints: 8,
                sliceSpawnDelay: 2800, slicePeakFraction: 0.85, sliceAirtimeMin: 7.0, sliceAirtimeMax: 7.5, targetInterval: 16000,
-               raceQuestionTime: 15000, raceStepBase: 15, raceDuration: 999999999, startLives: 99,
-               katTargetCount: 3, katTargetInterval: 18000, katGravityFactor: 0.65, katPowerScale: 2.8, katMaxPowerFactor: 1.55 }
+               raceStepBase: 15, startLives: 99,
+               katTargetCount: 3, katTargetInterval: 18000, katGravityFactor: 0.60, katMaxPowerFactor: 1.70, katPreviewLen: 3 }
   };
+  // katPreviewLen = Laenge der Flugbahn-Vorschau in Feldhoehen (klein = schwerer).
   // katGravityFactor/katMaxPowerFactor sind relativ zur tatsächlichen Spielfeldhöhe
   // ("Feldhöhen pro Sekunde²" bzw. "Feldhöhen pro Sekunde") - dadurch fühlt sich
   // der Wurf auf jedem Bildschirm (Handy, Tablet, Desktop) gleich an, statt auf
@@ -2039,7 +2256,8 @@ const WORDS = [
 
   /* ---------------- STATE ---------------- */
   let gameMode = 'faenger';
-  let lektMin = 1, lektMax = 9;
+  const MAX_LESSON = 12;
+  let lektMin = 1, lektMax = MAX_LESSON;
   let activeDecls = new Set(['1','2m','2n','3']);
   let activeNum = 'sg';
   let difficulty = 'mittel';
@@ -2050,6 +2268,8 @@ const WORDS = [
   let fallSpeed = 60;      // px/sec
   let spawnDelay = 2200;   // ms
   let lastFrame = 0;
+  let faengerRafId = null;
+  let faengerFieldHeight = 0;
   let tablets = [];
   let spawnTimer = null;
   let tabletSeq = 0;
@@ -2083,6 +2303,8 @@ const WORDS = [
   // Fehler-Auswertung & manuelles Beenden (modusübergreifend)
   let sessionMistakes = []; // { form, meaning, cases } - alle Fehler der aktuellen Runde
   let manualQuit = false;
+  let roundWords = [];
+  let roundCases = [];
   const RACE_LAP_LENGTH = 100; // Distanz-Einheiten pro "Runde" (intern, nicht in Metern)
   const RACE_RIG_MIN = 6;      // Position (in %) des Gespanns bei Rundenbeginn
   const RACE_RIG_MAX = 68;     // Position (in %) des Gespanns kurz vor Rundenende
@@ -2289,12 +2511,12 @@ const WORDS = [
   function buildLektionSelect(){
     const minSel = q('lekt-min');
     const maxSel = q('lekt-max');
-    for(let i=1;i<=9;i++){
+    for(let i=1;i<=MAX_LESSON;i++){
       minSel.appendChild(new Option('Lektion ' + i, i));
       maxSel.appendChild(new Option('Lektion ' + i, i));
     }
     minSel.value = 1;
-    maxSel.value = 9;
+    maxSel.value = MAX_LESSON;
     minSel.addEventListener('change', ()=>{
       lektMin = parseInt(minSel.value,10);
       if(lektMin > lektMax){ maxSel.value = lektMin; lektMax = lektMin; }
@@ -2350,41 +2572,31 @@ const WORDS = [
     const base = WORDS.filter(w =>
       w.lekt >= lektMin && w.lekt <= lektMax && activeDecls.has(w.decl)
     );
-
     if(activeNum !== 'mixed'){
-      const pool = base.filter(w => w.num === activeNum);
-      if(pool.length) return pool;
-      // Kein Treffer fuer den gewaehlten Numerus: Lektion/Deklination bleiben
-      // in jedem Fall verbindlich - hoechstens der Numerus wird gelockert.
-      if(base.length) return base;
-      return WORDS.filter(w => w.num === activeNum); // absoluter Notfall (sollte nie eintreten)
+      const exact = base.filter(w => w.num === activeNum);
+      return exact.length ? exact : base;
     }
 
-    // Gemischter Modus: Singular- UND Pluralformen zusammen im Topf.
-    // Formen, die (wortweise) in Singular UND Plural identisch geschrieben werden
-    // (z.B. "dominae" = Gen./Dat. Sg. ODER Nom. Pl.), werden zu einem Eintrag
-    // zusammengefuehrt, dessen Kasus-Menge alle gueltigen Lesarten enthaelt -
-    // beide/alle Antworten zaehlen dann als richtig.
+    // Fasst gleich geschriebene Formen eines Lemmas im gemischten Modus zusammen.
+    // So zählt "gladii" sowohl als Genitiv Singular als auch als Nominativ Plural.
     const merged = new Map();
-    base.forEach(w=>{
+    base.forEach(w => {
       const key = w.word + '||' + w.form;
-      if(!merged.has(key)){
-        merged.set(key, {
-          form: w.form, word: w.word, meaning: w.meaning,
-          lekt: w.lekt, decl: w.decl, num: 'mixed',
-          cases: new Set(w.cases)
-        });
-      } else {
-        const existing = merged.get(key);
-        w.cases.forEach(c => existing.cases.add(c));
-      }
+      if(!merged.has(key)) merged.set(key, { ...w, num:'mixed', cases:new Set() });
+      const entry = merged.get(key);
+      w.cases.forEach(id => entry.cases.add(id));
     });
-    const pool = Array.from(merged.values()).map(e => ({ ...e, cases: Array.from(e.cases) }));
-    return pool.length ? pool : base;
+    return Array.from(merged.values(), entry => ({
+      ...entry,
+      cases: Array.from(entry.cases)
+    }));
   }
 
   /* ---------------- GAME FLOW ---------------- */
   function startGame(){
+    roundWords = currentWordPool();
+    if(!roundWords.length) return;
+    roundCases = CASES.filter(c => roundWords.some(w => w.cases.includes(c.id)));
     currentDiff = DIFFICULTIES[difficulty];
     score = 0; lives = currentDiff.startLives; streak = 0;
     sessionMistakes = [];
@@ -2415,10 +2627,12 @@ const WORDS = [
       q('target-hint').innerHTML = 'Wische mit gedrückter Maustaste/Finger über passende Tafeln';
       startSliceGame();
     } else if(isRennen){
-      q('target-hint').innerHTML = 'Tippe die richtige Amphore an, bevor die Zeit für diese Form abläuft';
+      q('target-hint').textContent = difficulty === 'uebung'
+        ? 'Tippe die richtige Amphore an'
+        : 'Tippe die richtige Amphore an, bevor die Zeit für diese Form abläuft';
       startRennenGame();
     } else if(isKatapult){
-      q('target-hint').innerHTML = 'Ziehe irgendwo im Feld und lass los, um den Stein Richtung Ziel zu werfen';
+      q('target-hint').innerHTML = 'Schleuder: Stein nach hinten ziehen, loslassen – je weiter du ziehst, desto kräftiger der Wurf';
       startKatapultGame();
     } else {
       q('target-hint').innerHTML = 'Wagen lenken: <kbd>←</kbd> <kbd>→</kbd> oder Amphore anklicken';
@@ -2439,6 +2653,7 @@ const WORDS = [
     clearTimeout(raceQuestionTimer);
     clearInterval(raceIntervalTimer);
     clearTimeout(katTargetTimer);
+    if(faengerRafId) cancelAnimationFrame(faengerRafId);
     if(sliceRafId) cancelAnimationFrame(sliceRafId);
     if(katRafId) cancelAnimationFrame(katRafId);
     q('game-screen').classList.remove('active');
@@ -2530,13 +2745,14 @@ const WORDS = [
     fallSpeed = currentDiff.fallSpeed; spawnDelay = currentDiff.spawnDelay;
     tablets.forEach(t => t.el.remove());
     tablets = [];
+    faengerFieldHeight = q('playfield').clientHeight;
     selectedIndex = 2;
     updateCartPosition();
     q('urn-row').querySelectorAll('.urn').forEach((u,i)=>u.classList.toggle('selected', i===selectedIndex));
 
     running = true;
     lastFrame = performance.now();
-    requestAnimationFrame(loop);
+    faengerRafId = requestAnimationFrame(loop);
     scheduleSpawn();
   }
 
@@ -2547,7 +2763,7 @@ const WORDS = [
   }
 
   function spawnTablet(){
-    const pool = currentWordPool();
+    const pool = roundWords;
     const entry = pool[Math.floor(Math.random()*pool.length)];
     const field = q('playfield');
     const fw = field.clientWidth;
@@ -2581,7 +2797,7 @@ const WORDS = [
     const field = q('playfield');
     const catchLineY = field.clientHeight - 4; // top edge of urn strip
 
-    for(let i = tablets.length - 1; i >= 0; i--){
+    for(let i = tablets.length - 1; running && i >= 0; i--){
       const t = tablets[i];
       if(t.resolved) continue;
       t.y += fallSpeed * dt;
@@ -2592,7 +2808,7 @@ const WORDS = [
       }
     }
 
-    requestAnimationFrame(loop);
+    if(running) faengerRafId = requestAnimationFrame(loop);
   }
 
   function resolveCatch(t){
@@ -2648,6 +2864,7 @@ const WORDS = [
     sliceTablets.forEach(t => t.el.remove());
     sliceTablets = [];
     trailPoints = [];
+    onSlicePointerUp();
 
     const field = q('slice-field');
     const canvas = q('slice-canvas');
@@ -2668,7 +2885,8 @@ const WORDS = [
   }
 
   function randomTargetCase(excludeId){
-    const pool = CASES.filter(c => c.id !== excludeId);
+    const otherCases = roundCases.filter(c => c.id !== excludeId);
+    const pool = otherCases.length ? otherCases : roundCases;
     return pool[Math.floor(Math.random() * pool.length)].id;
   }
 
@@ -2724,7 +2942,7 @@ const WORDS = [
   }
 
   function spawnSliceTablet(forceMatch){
-    const pool = currentWordPool();
+    const pool = roundWords;
     let candidates = pool;
     if(forceMatch){
       const matching = pool.filter(w => w.cases.includes(targetCaseId));
@@ -2879,7 +3097,7 @@ const WORDS = [
     if(trailPoints.length > 24) trailPoints.shift();
 
     if(lastPointerPos){
-      for(let i = sliceTablets.length - 1; i >= 0; i--){
+      for(let i = sliceTablets.length - 1; sliceRunning && i >= 0; i--){
         const t = sliceTablets[i];
         if(t.resolved) continue;
         if(segmentIntersectsRect(lastPointerPos, p, t.x, t.y, t.w, t.h)){
@@ -2967,24 +3185,28 @@ const WORDS = [
     raceEndReason = 'time';
     updateRaceLapDisplay(false);
     positionRig(false);
+    q('race-card').classList.remove('correct', 'wrong');
+    q('race-qtimer-track').classList.toggle('hidden', difficulty === 'uebung');
 
-    raceTimeLeft = currentDiff.raceDuration;
-    q('race-time-left').textContent = Math.ceil(raceTimeLeft/1000);
-    const fill = q('race-time-fill');
-    if(fill._raceAnim) fill._raceAnim.cancel();
-    fill.style.width = '100%';
-    fill._raceAnim = fill.animate(
-      [{ width: '100%' }, { width: '0%' }],
-      { duration: currentDiff.raceDuration, easing: 'linear', fill: 'forwards' }
-    );
-    raceIntervalTimer = setInterval(()=>{
-      raceTimeLeft -= 200;
-      q('race-time-left').textContent = Math.max(0, Math.ceil(raceTimeLeft/1000));
-      if(raceTimeLeft <= 0){
-        raceEndReason = 'time';
-        endGame();
-      }
-    }, 200);
+    if(difficulty !== 'uebung'){
+      raceTimeLeft = currentDiff.raceDuration;
+      q('race-time-left').textContent = Math.ceil(raceTimeLeft/1000);
+      const fill = q('race-time-fill');
+      if(fill._raceAnim) fill._raceAnim.cancel();
+      fill.style.width = '100%';
+      fill._raceAnim = fill.animate(
+        [{ width: '100%' }, { width: '0%' }],
+        { duration: currentDiff.raceDuration, easing: 'linear', fill: 'forwards' }
+      );
+      raceIntervalTimer = setInterval(()=>{
+        raceTimeLeft -= 200;
+        q('race-time-left').textContent = Math.max(0, Math.ceil(raceTimeLeft/1000));
+        if(raceTimeLeft <= 0){
+          raceEndReason = 'time';
+          endGame();
+        }
+      }, 200);
+    }
 
     raceRunning = true;
     pickNextRaceWord();
@@ -3042,10 +3264,12 @@ const WORDS = [
   function pickNextRaceWord(){
     if(!raceRunning) return;
     raceAnswering = true;
-    const pool = currentWordPool();
+    const pool = roundWords;
     raceCurrentWord = pool[Math.floor(Math.random() * pool.length)];
     q('race-card').textContent = raceCurrentWord.form;
     q('race-card').title = raceCurrentWord.meaning;
+
+    if(difficulty === 'uebung') return;
 
     const qfill = q('race-qtimer-fill');
     if(qfill._raceQAnim) qfill._raceQAnim.cancel();
@@ -3090,33 +3314,85 @@ const WORDS = [
       card.classList.add('wrong');
       recordMistake(raceCurrentWord.form, raceCurrentWord.meaning, raceCurrentWord.cases);
 
-      lives--;
+      if(difficulty !== 'uebung') lives--;
       updateLives();
       if(lives <= 0){
         raceEndReason = 'lives';
-        setTimeout(()=> endGame(), 420);
+        raceQuestionTimer = setTimeout(()=> endGame(), 420);
         return;
       }
     }
 
-    setTimeout(()=>{
+    raceQuestionTimer = setTimeout(()=>{
       card.classList.remove('correct','wrong');
       if(raceRunning) pickNextRaceWord();
     }, 420);
   }
 
-  /* ---------------- KATAPULT-MODUS ---------------- */
-  const KAT_SLOTS = {
-    3: [{x:30,y:25},{x:58,y:42},{x:82,y:22}],
-    4: [{x:22,y:22},{x:46,y:40},{x:68,y:20},{x:88,y:42}],
-    5: [{x:18,y:20},{x:36,y:40},{x:54,y:18},{x:72,y:38},{x:90,y:22}]
-  };
+  /* ---------------- KATAPULT-MODUS (Schleuder-Logik) ---------------- */
+  // Das Katapult steht mittig am unteren Rand. Der Stein wird per Finger NACH
+  // HINTEN gezogen und fliegt in die Gegenrichtung; Zuglaenge = Kraft.
+  // Die Ziele erscheinen immer an zufaelligen, wechselnden Positionen.
+
+  // Geometrie des Katapults im Feld (aus dem tatsaechlichen Layout berechnet)
+  function getKatGeometry(){
+    const field = q('katapult-field');
+    const base = q('katapult-base');
+    const fr = field.getBoundingClientRect();
+    const br = base.getBoundingClientRect();
+    const left = br.left - fr.left, top = br.top - fr.top;
+    return {
+      fw: field.clientWidth, fh: field.clientHeight,
+      anchor: { x: left + br.width * 0.5,       y: top + br.height * (28/110) },
+      tipL:   { x: left + br.width * (38/140),  y: top + br.height * (14/110) },
+      tipR:   { x: left + br.width * (102/140), y: top + br.height * (14/110) }
+    };
+  }
+
+  // Maximale Zugweite des Fingers (in px) - relativ zur Feldgroesse, mit Untergrenze
+  function katPullMax(fw, fh){
+    return Math.max(90, Math.min(fh * 0.24, fw * 0.34));
+  }
+  function katMinPull(max){ return Math.max(12, max * 0.12); }
+
+  // Geklemmter Zugvektor (Fingerbewegung seit dem Aufsetzen)
+  function katPullVector(geo){
+    const max = katPullMax(geo.fw, geo.fh);
+    if(!katAimStart || !katAimCurrent) return { x:0, y:0, len:0, max };
+    let dx = katAimCurrent.x - katAimStart.x;
+    let dy = katAimCurrent.y - katAimStart.y;
+    const len = Math.sqrt(dx*dx + dy*dy);
+    if(len > max){ dx *= max / len; dy *= max / len; }
+    return { x: dx, y: dy, len: Math.min(len, max), max };
+  }
+
+  // Schleuder-Prinzip: Flugrichtung = GEGEN die Zugrichtung, Tempo ~ Zuglaenge
+  function katLaunchVelocity(pull, fh){
+    if(pull.len <= 0) return { vx: 0, vy: 0 };
+    const vmax = currentDiff.katMaxPowerFactor * fh;
+    const f = pull.len / pull.max;
+    return { vx: -pull.x / pull.len * vmax * f, vy: -pull.y / pull.len * vmax * f };
+  }
+
+  function updateKatBaseState(){
+    const base = q('katapult-base');
+    if(!base) return;
+    base.classList.toggle('aiming', katAiming);
+    base.classList.toggle('flying', !!katProjectile);
+  }
+
+  function removeKatProjectile(){
+    if(katProjectile){ katProjectile.el.remove(); katProjectile = null; }
+    updateKatBaseState();
+  }
 
   function startKatapultGame(){
-    katTargets.forEach(t=>{ if(t) t.el.remove(); });
+    katTargets.forEach(t => { if(t) t.el.remove(); });
     katTargets = [];
-    if(katProjectile){ katProjectile.el.remove(); katProjectile = null; }
+    removeKatProjectile();
     katAiming = false; katAimStart = null; katAimCurrent = null;
+    updateKatBaseState();
+    q('katapult-hint').classList.remove('gone');
 
     const field = q('katapult-field');
     const canvas = q('katapult-canvas');
@@ -3129,8 +3405,8 @@ const WORDS = [
     resetKatapultTargetProgress(currentDiff.katTargetInterval);
 
     const count = currentDiff.katTargetCount;
-    for(let i=0; i<count; i++){
-      spawnKatapultTarget(i);
+    for(let i = 0; i < count; i++){
+      spawnKatapultTarget(i, null);
     }
     ensureKatapultGuarantee();
 
@@ -3140,31 +3416,80 @@ const WORDS = [
     scheduleKatapultTargetRotation();
   }
 
-  function spawnKatapultTarget(slotIndex){
-    const pool = currentWordPool();
-    const entry = pool[Math.floor(Math.random() * pool.length)];
+  // Waehlt eine zufaellige freie Position im Zielbereich (obere ~56% des Feldes):
+  // ohne Ueberlappung mit anderen Zielen und weit weg von der vorigen Position.
+  function pickKatTargetPosition(w, h, others, prev){
     const field = q('katapult-field');
     const fw = field.clientWidth, fh = field.clientHeight;
-    const count = currentDiff.katTargetCount;
-    const slot = (KAT_SLOTS[count] || KAT_SLOTS[4])[slotIndex];
+    const xMin = w/2 + 10, xMax = Math.max(xMin + 1, fw - w/2 - 10);
+    const yMin = Math.max(h/2 + 8, fh * 0.12), yMax = Math.max(yMin + 1, fh * 0.56);
+    let best = null, bestScore = -Infinity;
+    for(let i = 0; i < 120; i++){
+      const gap = i < 60 ? 14 : 2; // wird es eng, sind in der 2. Runde knappere Abstaende erlaubt
+      const x = xMin + Math.random() * (xMax - xMin);
+      const y = yMin + Math.random() * (yMax - yMin);
+      let overlap = false, nearest = Infinity;
+      for(const o of others){
+        const ox = Math.abs(x - o.x) < (w + o.w)/2 + gap;
+        const oy = Math.abs(y - o.y) < (h + o.h)/2 + gap;
+        if(ox && oy){ overlap = true; break; }
+        nearest = Math.min(nearest, Math.hypot(x - o.x, y - o.y));
+      }
+      const prevDist = prev ? Math.hypot(x - prev.x, y - prev.y) : Infinity;
+      if(!overlap && prevDist >= fw * 0.18) return { x, y };
+      const score = (overlap ? -1e6 : 0) + Math.min(nearest, 400) + Math.min(prevDist, 400);
+      if(score > bestScore){ bestScore = score; best = { x, y }; }
+    }
+    return best;
+  }
 
+  function spawnKatapultTarget(slotIndex, prevPos){
+    const pool = roundWords;
+    const others = katTargets.filter((t, i) => t && !t.resolved && i !== slotIndex);
+    const usedForms = new Set(others.map(t => t.form));
+    let entry = null;
+    for(let i = 0; i < 14 && !entry; i++){
+      const cand = pool[Math.floor(Math.random() * pool.length)];
+      if(!usedForms.has(cand.form)) entry = cand;
+    }
+    if(!entry) entry = pool[Math.floor(Math.random() * pool.length)];
+
+    const field = q('katapult-field');
     const el = document.createElement('div');
     el.className = 'katapult-target';
     el.textContent = entry.form;
     el.title = entry.meaning;
-    el.style.left = (fw * slot.x/100) + 'px';
-    el.style.top = (fh * slot.y/100) + 'px';
     field.appendChild(el);
+    const w = el.offsetWidth || 90, h = el.offsetHeight || 40;
 
+    const pos = pickKatTargetPosition(w, h, others, prevPos);
+    el.style.left = pos.x + 'px';
+    el.style.top = pos.y + 'px';
+
+    const fw = field.clientWidth, fh = field.clientHeight;
     const t = {
       id: katTabletSeq++, el,
-      x: fw * slot.x/100, y: fh * slot.y/100,
-      w: el.offsetWidth || 90, h: el.offsetHeight || 40,
+      x: pos.x, y: pos.y, rx: pos.x / fw, ry: pos.y / fh,
+      w, h,
       form: entry.form, meaning: entry.meaning, cases: entry.cases,
       slotIndex, resolved: false
     };
     katTargets[slotIndex] = t;
     return t;
+  }
+
+  // Nach Groessenaenderung/Drehen: Ziele proportional neu platzieren
+  function relayoutKatTargets(){
+    const field = q('katapult-field');
+    const fw = field.clientWidth, fh = field.clientHeight;
+    katTargets.forEach(t => {
+      if(!t) return;
+      t.w = t.el.offsetWidth || t.w; t.h = t.el.offsetHeight || t.h;
+      t.x = Math.max(t.w/2, Math.min(t.rx * fw, fw - t.w/2));
+      t.y = Math.max(t.h/2, Math.min(t.ry * fh, fh - t.h/2));
+      t.el.style.left = t.x + 'px';
+      t.el.style.top = t.y + 'px';
+    });
   }
 
   // Sorgt dafuer, dass unter den aktuell angezeigten Zielen immer mindestens
@@ -3175,12 +3500,13 @@ const WORDS = [
     const active = katTargets.filter(t => t && !t.resolved);
     if(!active.length) return;
     const victim = active[Math.floor(Math.random() * active.length)];
-    const pool = currentWordPool().filter(w => w.cases.includes(katTargetCaseId));
+    const pool = roundWords.filter(w => w.cases.includes(katTargetCaseId));
     if(!pool.length) return;
     const entry = pool[Math.floor(Math.random() * pool.length)];
     victim.form = entry.form; victim.meaning = entry.meaning; victim.cases = entry.cases;
     victim.el.textContent = entry.form;
     victim.el.title = entry.meaning;
+    relayoutKatTargets();
   }
 
   function updateKatapultTargetDisplay(){
@@ -3213,19 +3539,15 @@ const WORDS = [
 
   function launchKatapultProjectile(vx, vy){
     const field = q('katapult-field');
-    const fw = field.clientWidth, fh = field.clientHeight;
+    const geo = getKatGeometry();
     const el = document.createElement('div');
     el.className = 'kat-projectile';
+    el.style.transform = 'translate(' + (geo.anchor.x - 8) + 'px,' + (geo.anchor.y - 8) + 'px)';
     field.appendChild(el);
-    // Schwerkraft wird beim Abschuss anhand der aktuellen Feldgroesse fixiert,
-    // damit sie waehrend des Flugs konsistent bleibt (auch bei Resize/Drehung).
-    katProjectile = { el, x: fw*0.16, y: fh*0.78, vx, vy, gravity: currentDiff.katGravityFactor * fh };
-
-    const arm = q('kat-arm');
-    if(arm){
-      arm.classList.remove('fired'); void arm.offsetWidth; arm.classList.add('fired');
-      setTimeout(()=> arm.classList.remove('fired'), 220);
-    }
+    // Schwerkraft wird beim Abschuss anhand der aktuellen Feldgroesse fixiert.
+    katProjectile = { el, x: geo.anchor.x, y: geo.anchor.y, vx, vy, gravity: currentDiff.katGravityFactor * geo.fh };
+    q('katapult-hint').classList.add('gone');
+    updateKatBaseState();
   }
 
   function resolveKatapultHit(t){
@@ -3240,30 +3562,34 @@ const WORDS = [
       score += bonus;
       q('score').textContent = score;
       showStreak();
-      const otherCases = t.cases.filter(c => c !== katTargetCaseId).map(id => CASES.find(c=>c.id===id).name);
-      const multNote = mult > 1 ? ('×' + mult.toFixed(2).replace(/\.?0+$/,'') + (otherCases.length ? '  ' : '')) : '';
+      const otherCases = t.cases.filter(c => c !== katTargetCaseId).map(id => CASES.find(c => c.id === id).name);
+      const multNote = mult > 1 ? ('×' + mult.toFixed(2).replace(/\.?0+$/, '') + (otherCases.length ? '  ' : '')) : '';
       const extra = multNote + (otherCases.length ? 'auch: ' + otherCases.join(' / ') : '');
       spawnFloater('katapult-field', '+' + bonus, extra, t.x, t.y - 20, true);
       t.el.classList.add('correct');
     } else {
       streak = 0;
       q('streak').classList.remove('show');
-      const correctNames = t.cases.map(id => CASES.find(c=>c.id===id).name).join(' / ');
+      const correctNames = t.cases.map(id => CASES.find(c => c.id === id).name).join(' / ');
       spawnFloater('katapult-field', 'nicht ' + targetName, '(richtig: ' + correctNames + ')', t.x, t.y - 20, false);
       t.el.classList.add('wrong');
       recordMistake(t.form, t.meaning, t.cases);
       lives--;
       updateLives();
       if(lives <= 0){
-        setTimeout(()=> endGame(), 420);
+        setTimeout(() => {
+          if(katRunning && katTargets[t.slotIndex] === t) endGame();
+        }, 420);
         return;
       }
     }
 
+    // Ersatz-Ziel erscheint an einer ANDEREN Stelle als das getroffene
+    const prev = { x: t.x, y: t.y };
     setTimeout(()=>{
       t.el.remove();
-      if(katRunning){
-        spawnKatapultTarget(t.slotIndex);
+      if(katRunning && katTargets[t.slotIndex] === t){
+        spawnKatapultTarget(t.slotIndex, prev);
         ensureKatapultGuarantee();
       }
     }, 380);
@@ -3279,109 +3605,142 @@ const WORDS = [
 
     if(katProjectile){
       const p = katProjectile;
-      p.vy += p.gravity * dt;
-      p.x += p.vx * dt;
-      p.y += p.vy * dt;
-      p.el.style.transform = 'translate(' + (p.x-8) + 'px,' + (p.y-8) + 'px)';
-
-      let hit = null;
-      for(let i=0; i<katTargets.length; i++){
-        const t = katTargets[i];
-        if(!t || t.resolved) continue;
-        if(pointInRect({x:p.x, y:p.y}, t.x - t.w/2, t.y - t.h/2, t.w, t.h)){
-          hit = t; break;
+      // Teilschritte, damit schnelle Steine keine Ziele "durchtunneln"
+      const steps = Math.max(1, Math.ceil(dt / 0.008));
+      const sdt = dt / steps;
+      let hit = null, out = false;
+      for(let s = 0; s < steps && !hit && !out; s++){
+        p.vy += p.gravity * sdt;
+        p.x += p.vx * sdt;
+        p.y += p.vy * sdt;
+        for(let i = 0; i < katTargets.length; i++){
+          const t = katTargets[i];
+          if(!t || t.resolved) continue;
+          if(pointInRect({ x: p.x, y: p.y }, t.x - t.w/2 - 6, t.y - t.h/2 - 6, t.w + 12, t.h + 12)){
+            hit = t; break;
+          }
         }
+        if(p.y > fh + 60 || p.x < -60 || p.x > fw + 60 || p.y < -fh * 0.8) out = true;
       }
+      p.el.style.transform = 'translate(' + (p.x - 8) + 'px,' + (p.y - 8) + 'px)';
       if(hit){
         resolveKatapultHit(hit);
-        p.el.remove();
-        katProjectile = null;
-      } else if(p.y > fh+60 || p.x < -60 || p.x > fw+60 || p.y < -fh*0.8){
-        p.el.remove();
-        katProjectile = null;
+        removeKatProjectile();
+      } else if(out){
+        removeKatProjectile();
       }
     }
 
-    if(katAiming) drawKatAimPreview();
+    if(katAiming) drawKatAim();
 
     katRafId = requestAnimationFrame(katapultLoop);
   }
 
-  function drawKatAimPreview(){
+  // Zeichnet waehrend des Ziehens: Zug-Ring, gespannte Baender, gezogenen Stein
+  // und die Flugbahn-Vorschau (Laenge je nach Schwierigkeitsgrad).
+  function drawKatAim(){
     if(!katCtx || !katAimStart || !katAimCurrent) return;
     const canvas = katCtx.canvas;
     katCtx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const field = q('katapult-field');
-    const fw = field.clientWidth, fh = field.clientHeight;
-    const maxPower = currentDiff.katMaxPowerFactor * fh;
-    const gravity = currentDiff.katGravityFactor * fh;
+    const geo = getKatGeometry();
+    const pull = katPullVector(geo);
+    const a = geo.anchor;
+    const stone = { x: a.x + pull.x, y: a.y + pull.y };
 
-    const dx = katAimCurrent.x - katAimStart.x;
-    const dy = katAimCurrent.y - katAimStart.y;
-    let vx = dx * currentDiff.katPowerScale;
-    let vy = dy * currentDiff.katPowerScale;
-    const mag = Math.sqrt(vx*vx + vy*vy);
-    if(mag > maxPower){
-      const s = maxPower / mag;
-      vx *= s; vy *= s;
-    }
+    // maximale Zugweite (dezenter, gestrichelter Ring)
+    katCtx.save();
+    katCtx.setLineDash([4, 6]);
+    katCtx.strokeStyle = 'rgba(230,191,106,.45)';
+    katCtx.lineWidth = 2;
+    katCtx.beginPath();
+    katCtx.arc(a.x, a.y, pull.max, 0, Math.PI * 2);
+    katCtx.stroke();
+    katCtx.restore();
 
-    let px = fw*0.16, py = fh*0.78;
-    let pvx = vx, pvy = vy;
-    const dt = 0.05;
-    katCtx.fillStyle = 'rgba(230,191,106,.8)';
-    for(let i=0; i<24; i++){
-      pvy += gravity * dt;
-      px += pvx * dt; py += pvy * dt;
-      if(py > fh || px < 0 || px > fw) break;
-      katCtx.beginPath();
-      katCtx.arc(px, py, 3.2, 0, Math.PI*2);
-      katCtx.fill();
+    // gespannte Gummibaender
+    katCtx.lineCap = 'round';
+    [geo.tipL, geo.tipR].forEach(tip => {
+      katCtx.strokeStyle = '#2e2a24'; katCtx.lineWidth = 6;
+      katCtx.beginPath(); katCtx.moveTo(tip.x, tip.y); katCtx.lineTo(stone.x, stone.y); katCtx.stroke();
+      katCtx.strokeStyle = '#a8743f'; katCtx.lineWidth = 3.5;
+      katCtx.beginPath(); katCtx.moveTo(tip.x, tip.y); katCtx.lineTo(stone.x, stone.y); katCtx.stroke();
+    });
+
+    // gezogener Stein
+    katCtx.fillStyle = '#5a5248';
+    katCtx.strokeStyle = '#2e2a24';
+    katCtx.lineWidth = 1.5;
+    katCtx.beginPath();
+    katCtx.arc(stone.x, stone.y, 9, 0, Math.PI * 2);
+    katCtx.fill();
+    katCtx.stroke();
+
+    // Flugbahn-Vorschau (erst ab Mindestzug)
+    if(pull.len >= katMinPull(pull.max)){
+      const v = katLaunchVelocity(pull, geo.fh);
+      const g = currentDiff.katGravityFactor * geo.fh;
+      const maxLen = currentDiff.katPreviewLen * geo.fh;
+      const fadeLen = Math.min(maxLen, geo.fh * 1.2);
+      const dt = 0.016;
+      let px = a.x, py = a.y, pvx = v.vx, pvy = v.vy;
+      let travelled = 0, sinceDot = 0;
+      for(let i = 0; i < 400; i++){
+        pvy += g * dt;
+        const nx = px + pvx * dt, ny = py + pvy * dt;
+        const seg = Math.hypot(nx - px, ny - py);
+        px = nx; py = ny;
+        travelled += seg; sinceDot += seg;
+        if(px < -10 || px > geo.fw + 10 || py > geo.fh + 10) break;
+        if(travelled > maxLen) break;
+        if(sinceDot >= 16){
+          sinceDot = 0;
+          const alpha = Math.max(0.15, 0.9 - 0.75 * (travelled / fadeLen));
+          katCtx.fillStyle = 'rgba(40,30,18,' + (alpha * 0.55).toFixed(2) + ')';
+          katCtx.beginPath(); katCtx.arc(px, py, 3.8, 0, Math.PI * 2); katCtx.fill();
+          katCtx.fillStyle = 'rgba(240,200,110,' + alpha.toFixed(2) + ')';
+          katCtx.beginPath(); katCtx.arc(px, py, 2.7, 0, Math.PI * 2); katCtx.fill();
+        }
+      }
     }
   }
 
   function onKatPointerDown(e){
     if(gameMode !== 'katapult' || !katRunning || katProjectile) return;
-    katAiming = true;
     const field = q('katapult-field');
+    katAiming = true;
     katAimStart = getFieldPoint(e, field);
     katAimCurrent = katAimStart;
-    // Pointer-Capture: sorgt dafuer, dass Zug-Events auch dann noch beim
-    // Spielfeld ankommen, wenn der Finger beim steilen Nach-oben-Ziehen
-    // ueber den Rand des Feldes hinaus wandert (z.B. auf die Ziel-Leiste).
+    // Pointer-Capture: Zug-Events kommen auch an, wenn der Finger das Feld verlaesst.
     try{ field.setPointerCapture(e.pointerId); }catch(err){ /* z.B. Maus ohne Capture-Support */ }
+    updateKatBaseState();
     e.preventDefault();
   }
 
   function onKatPointerMove(e){
     if(!katAiming) return;
-    const field = q('katapult-field');
-    katAimCurrent = getFieldPoint(e, field);
+    katAimCurrent = getFieldPoint(e, q('katapult-field'));
     e.preventDefault();
   }
 
-  function onKatPointerUp(){
+  function finishKatAim(doLaunch){
     if(!katAiming) return;
     katAiming = false;
-    const dx = katAimCurrent.x - katAimStart.x;
-    const dy = katAimCurrent.y - katAimStart.y;
-    const dist = Math.sqrt(dx*dx + dy*dy);
-    if(dist > 18){
-      const field = q('katapult-field');
-      const maxPower = currentDiff.katMaxPowerFactor * field.clientHeight;
-      let vx = dx * currentDiff.katPowerScale;
-      let vy = dy * currentDiff.katPowerScale;
-      const mag = Math.sqrt(vx*vx + vy*vy);
-      if(mag > maxPower){
-        const s = maxPower / mag;
-        vx *= s; vy *= s;
+    if(doLaunch){
+      const geo = getKatGeometry();
+      const pull = katPullVector(geo);
+      if(pull.len >= katMinPull(pull.max)){
+        const v = katLaunchVelocity(pull, geo.fh);
+        launchKatapultProjectile(v.vx, v.vy);
       }
-      launchKatapultProjectile(vx, vy);
     }
     katAimStart = null; katAimCurrent = null;
     if(katCtx) katCtx.clearRect(0, 0, katCtx.canvas.width, katCtx.canvas.height);
+    updateKatBaseState();
   }
+
+  function onKatPointerUp(){ finishKatAim(true); }
+  function onKatPointerCancel(){ finishKatAim(false); } // z.B. System-Geste: nichts abfeuern
 
   /* ---------------- INPUT ---------------- */
   document.addEventListener('keydown', (e)=>{
@@ -3460,19 +3819,36 @@ const WORDS = [
   katField.addEventListener('pointerdown', onKatPointerDown);
   katField.addEventListener('pointermove', onKatPointerMove);
   window.addEventListener('pointerup', onKatPointerUp);
-  window.addEventListener('pointercancel', onKatPointerUp);
+  window.addEventListener('pointercancel', onKatPointerCancel);
 
   window.addEventListener('resize', ()=>{
     updateCartPosition();
-    if(sliceCtx){
+    if(running){
+      const field = q('playfield');
+      if(field.clientWidth && field.clientHeight){
+        tablets.forEach(t => {
+          t.x = Math.min(t.x, Math.max(0, field.clientWidth - t.w));
+          const previousTravel = faengerFieldHeight - t.h - 4;
+          if(t.y > 0 && previousTravel > 0){
+            t.y *= Math.max(0, field.clientHeight - t.h - 4) / previousTravel;
+          }
+        });
+        faengerFieldHeight = field.clientHeight;
+      }
+    }
+    if(sliceRunning){
       const field = q('slice-field');
       sliceCtx.canvas.width = field.clientWidth;
       sliceCtx.canvas.height = field.clientHeight;
+      sliceTablets.forEach(t => {
+        t.x = Math.max(0, Math.min(t.x, field.clientWidth - t.w));
+      });
     }
-    if(katCtx){
+    if(katRunning){
       const field = q('katapult-field');
       katCtx.canvas.width = field.clientWidth;
       katCtx.canvas.height = field.clientHeight;
+      relayoutKatTargets();
     }
   });
 
